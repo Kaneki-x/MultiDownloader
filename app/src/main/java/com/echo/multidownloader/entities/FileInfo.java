@@ -1,13 +1,15 @@
 package com.echo.multidownloader.entities;
 
+import com.echo.multidownloader.task.MultiDownloadConnectListener;
+
 import java.io.Serializable;
 
 public class FileInfo implements Serializable {
-	private int id;
 	private String url;
 	private String fileName;
-	private int length;
-	private int finished;
+	private long length;
+	private int percent;
+    private MultiDownloadConnectListener multiDownloadConnectListener;
 	
 	/** 
 	 *@param id
@@ -16,23 +18,13 @@ public class FileInfo implements Serializable {
 	 *@param length
 	 *@param finished
 	 */
-	public FileInfo(int id, String url, String fileName, int length,
-			int finished) {
-		this.id = id;
+	public FileInfo(String url, String fileName, long length,
+			int percent, MultiDownloadConnectListener multiDownloadConnectListener) {
 		this.url = url;
 		this.fileName = fileName;
 		this.length = length;
-		this.finished = finished;
-	}
-
-	public int getId()
-	{
-		return id;
-	}
-
-	public void setId(int id)
-	{
-		this.id = id;
+		this.percent = percent;
+        this.multiDownloadConnectListener = multiDownloadConnectListener;
 	}
 
 	public String getUrl()
@@ -55,29 +47,37 @@ public class FileInfo implements Serializable {
 		this.fileName = fileName;
 	}
 
-	public int getLength()
+	public long getLength()
 	{
 		return length;
 	}
 
-	public void setLength(int length)
+	public void setLength(long length)
 	{
 		this.length = length;
 	}
 
-	public int getFinished()
+	public int getPercent()
 	{
-		return finished;
+		return percent;
 	}
 
-	public void setFinished(int finished)
+	public void setPercent(int finished)
 	{
-		this.finished = finished;
+		this.percent = finished;
 	}
 
-	@Override
+    public MultiDownloadConnectListener getMultiDownloadConnectListener() {
+        return multiDownloadConnectListener;
+    }
+
+    public void setMultiDownloadConnectListener(MultiDownloadConnectListener multiDownloadConnectListener) {
+        this.multiDownloadConnectListener = multiDownloadConnectListener;
+    }
+
+    @Override
 	public String toString() {
-		return "FileInfo [id=" + id + ", url=" + url + ", fileName=" + fileName
-				+ ", length=" + length + ", finished=" + finished + "]";
+		return "FileInfo [url=" + url + ", fileName=" + fileName
+				+ ", length=" + length + ", finished=" + percent + "]";
 	}
 }

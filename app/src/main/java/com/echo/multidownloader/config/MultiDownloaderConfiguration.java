@@ -10,17 +10,31 @@ public class MultiDownloaderConfiguration {
 
     int maxThreadNums;
     String downPath;
+    Context context;
 
     private MultiDownloaderConfiguration(Builder builder) {
 
         this.downPath = builder.downPath;
         this.maxThreadNums = builder.maxThreadNums;
+        this.context = builder.context;
     }
 
+    public String getDownPath() {
+        return downPath;
+    }
+
+    public int getMaxThreadNums() {
+        return maxThreadNums;
+    }
+
+    public Context getContext() {
+        return context;
+    }
 
     public static MultiDownloaderConfiguration createDefault(Context context) {
         return new Builder(context).build();
     }
+
 
     public static class Builder {
 
