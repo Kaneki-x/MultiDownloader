@@ -1,9 +1,6 @@
 package com.echo.multidownloader.task;
 
 import android.content.Context;
-import android.os.Bundle;
-import android.os.Handler;
-import android.os.Message;
 import android.util.Log;
 
 import com.echo.multidownloader.MultiDownloader;
@@ -21,6 +18,8 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
+
+import de.greenrobot.event.EventBus;
 
 
 public class DownloadTask {
@@ -80,21 +79,6 @@ public class DownloadTask {
         }
     }
 
-    private Handler mHandler = new Handler() {
-        @Override
-        public void handleMessage(Message msg) {
-            super.handleMessage(msg);
-            switch (msg.what) {
-                case TASK_UPDATE:
-                    mFileInfo.getMultiDownloadConnectListener().onProgress(msg.getData().getLong("current_percent", 0), msg.getData().getLong("total_percent", 0));
-                    break;
-                case TASK_FINISH:
-                    mFileInfo.getMultiDownloadConnectListener().onSuccess();
-                    break;
-            }
-        }
-    };
-
     private class DownloadThread extends Thread {
         private ThreadInfo mThreadInfo = null;
         public boolean isFinished = false;
@@ -140,12 +124,10 @@ public class DownloadTask {
                         mThreadInfo.setFinished(mThreadInfo.getFinished() + len);
                         if (System.currentTimeMillis() - time > 1000) {
                             time = System.currentTimeMillis();
-                            Message message = mHandler.obtainMessage();
-                            message.what = TASK_UPDATE;
-                            Bundle data = new Bundle();
-                            data.putLong("current_percent", mFinised);
-                            data.putLong("total_percent", mFileInfo.getLength());
-                            mHandler.sendMessage(message);
+                            MultiDownloadConnectEvent multiDownloadConnectEvent = new MultiDownloadConnectEvent(mFileInfo.getUrl(), MultiDownloadConnectEvent.TYPE_LOADING);
+                            multiDownloadConnectEvent.setCurrent_percent(mFinised);
+                            multiDownloadConnectEvent.setTotal_percent(mFileInfo.getLength());
+                            EventBus.getDefault().post(multiDownloadConnectEvent);
                         }
 
                         if (isPause) {
@@ -163,7 +145,8 @@ public class DownloadTask {
                     checkAllThreadFinished();
                 }
             } catch (Exception e) {
-                mHandler.obtainMessage(TASK_ERROR).sendToTarget();
+                MultiDownloader.getInstance().getExecutorTask().remove(mFileInfo.getUrl());
+                EventBus.getDefault().post(new MultiDownloadConnectEvent(mFileInfo.getUrl(), MultiDownloadConnectEvent.TYPE_FAIL));
                 e.printStackTrace();
             } finally {
                 try {
@@ -192,7 +175,8 @@ public class DownloadTask {
 
         if (allFinished) {
             mDao.deleteThread(mFileInfo.getUrl());
-            mHandler.obtainMessage(TASK_FINISH).sendToTarget();
+            MultiDownloader.getInstance().getExecutorTask().remove(mFileInfo.getUrl());
+            EventBus.getDefault().post(new MultiDownloadConnectEvent(mFileInfo.getUrl(), MultiDownloadConnectEvent.TYPE_SUCCESS));
         }
     }
 }

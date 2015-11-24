@@ -11,6 +11,7 @@ import com.echo.multidownloader.db.ThreadDAO;
 import com.echo.multidownloader.db.ThreadDAOImpl;
 import com.echo.multidownloader.entities.FileInfo;
 import com.echo.multidownloader.task.DownloadTask;
+import com.echo.multidownloader.task.MultiDownloadConnectEvent;
 
 import org.apache.http.HttpStatus;
 
@@ -19,6 +20,8 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.net.HttpURLConnection;
 import java.net.URL;
+
+import de.greenrobot.event.EventBus;
 
 public class MultiMainService extends Service {
 
@@ -52,7 +55,7 @@ public class MultiMainService extends Service {
             DownloadTask task = MultiDownloader.getInstance().getExecutorTask().get(fileInfo.getUrl());
             if (task != null) {
                 task.isPause = true;
-                MultiDownloader.getInstance().getExecutorTask().remove(task);
+                MultiDownloader.getInstance().getExecutorTask().remove(fileInfo.getUrl());
             }
         } else if (ACTION_STOP.equals(intent.getAction())) {
             FileInfo fileInfo = (FileInfo) intent.getSerializableExtra("fileInfo");
@@ -68,7 +71,7 @@ public class MultiMainService extends Service {
                         fileInfo.getFileName());
                 if(file.exists())
                     file.delete();
-                MultiDownloader.getInstance().getExecutorTask().remove(task);
+                MultiDownloader.getInstance().getExecutorTask().remove(fileInfo.getUrl());
             }
         }
         return super.onStartCommand(intent, flags, startId);
@@ -85,10 +88,6 @@ public class MultiMainService extends Service {
                     task.downLoad();
                     // 把下载任务添加到集合中
                     MultiDownloader.getInstance().getExecutorTask().put(fileInfo.getUrl(), task);
-                    break;
-                case UNIT_CHECK_FAIL:
-                    fileInfo = (FileInfo) msg.obj;
-                    fileInfo.getMultiDownloadConnectListener().onFail();
                     break;
             }
         };
@@ -139,7 +138,7 @@ public class MultiMainService extends Service {
                 mFileInfo.setLength(length);
                 mHandler.obtainMessage(UNIT_CHECK_SUCCESS, mFileInfo).sendToTarget();
             } catch (Exception e) {
-                mHandler.obtainMessage(UNIT_CHECK_FAIL, mFileInfo).sendToTarget();
+                EventBus.getDefault().post(new MultiDownloadConnectEvent(mFileInfo.getUrl(), MultiDownloadConnectEvent.TYPE_FAIL));
                 e.printStackTrace();
             } finally {
                 if (connection != null)

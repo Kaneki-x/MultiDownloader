@@ -35,7 +35,6 @@ public class MultiDownloaderConfiguration {
         return new Builder(context).build();
     }
 
-
     public static class Builder {
 
         private Context context;
