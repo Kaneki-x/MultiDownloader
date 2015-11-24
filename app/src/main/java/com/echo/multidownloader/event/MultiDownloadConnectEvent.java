@@ -1,4 +1,4 @@
-package com.echo.multidownloader.task;
+package com.echo.multidownloader.event;
 
 /**
  * Created by Lion on 2015/11/24 0024.

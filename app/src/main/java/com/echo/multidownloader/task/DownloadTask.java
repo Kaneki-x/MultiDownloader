@@ -8,6 +8,7 @@ import com.echo.multidownloader.db.ThreadDAO;
 import com.echo.multidownloader.db.ThreadDAOImpl;
 import com.echo.multidownloader.entities.FileInfo;
 import com.echo.multidownloader.entities.ThreadInfo;
+import com.echo.multidownloader.event.MultiDownloadConnectEvent;
 
 import org.apache.http.HttpStatus;
 
@@ -145,7 +146,9 @@ public class DownloadTask {
                     checkAllThreadFinished();
                 }
             } catch (Exception e) {
-                MultiDownloader.getInstance().getExecutorTask().remove(mFileInfo.getUrl());
+                synchronized (this) {
+                    MultiDownloader.getInstance().getExecutorTask().remove(mFileInfo.getUrl());
+                }
                 EventBus.getDefault().post(new MultiDownloadConnectEvent(mFileInfo.getUrl(), MultiDownloadConnectEvent.TYPE_FAIL));
                 e.printStackTrace();
             } finally {

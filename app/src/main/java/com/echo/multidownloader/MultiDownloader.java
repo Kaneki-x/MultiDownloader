@@ -44,14 +44,12 @@ public class MultiDownloader {
 
     private FileInfo isDownloadTaskExist(String url) {
         if(mTasks.containsKey(url)) {
-            Log.d("bobo", "task exit");
             return mTasks.get(url).getFileInfo();
         } else {
             Iterator<FileInfo> it = fileInfoQueue.iterator();
             while(it.hasNext()) {
                 FileInfo fileInfo = it.next();
                 if(fileInfo.getUrl().equals(url)) {
-                    Log.d("bobo", "queue exit");
                     return fileInfo;
                 }
             }
@@ -92,8 +90,9 @@ public class MultiDownloader {
 
     public void addDownloadTaskIntoExecutorService(String fileName, String url) {
         if(isDownloadTaskExist(url) == null) {
-            fileInfoQueue.offer(new FileInfo(url, fileName, 0, 0));
-            Log.d("bobo", "1");
+            synchronized (this) {
+                fileInfoQueue.offer(new FileInfo(url, fileName, 0, 0));
+            }
         }
     }
 
@@ -102,9 +101,11 @@ public class MultiDownloader {
         if(fileInfo == null) {
             return false;
         } else {
-            if(fileInfoQueue.contains(fileInfo))
-                fileInfoQueue.remove(fileInfo);
-            else
+            if(fileInfoQueue.contains(fileInfo)) {
+                synchronized (this) {
+                    fileInfoQueue.remove(fileInfo);
+                }
+            } else
                 startExecutorService(fileInfo, MultiMainService.ACTION_PAUSE);
             return true;
         }
@@ -115,9 +116,11 @@ public class MultiDownloader {
         if(fileInfo == null) {
             return false;
         } else {
-            if(fileInfoQueue.contains(fileInfo))
-                fileInfoQueue.remove(fileInfo);
-            else
+            if(fileInfoQueue.contains(fileInfo)) {
+                synchronized (this) {
+                    fileInfoQueue.remove(fileInfo);
+                }
+            } else
                 startExecutorService(fileInfo, MultiMainService.ACTION_STOP);
             return true;
         }
@@ -129,12 +132,14 @@ public class MultiDownloader {
         public void run() {
             while (true) {
                 try {
-                    while (mTasks.size() < maxThreadNums) {
-                        FileInfo fileInfo = fileInfoQueue.poll();
-                        if(fileInfo != null)
-                            startExecutorService(fileInfo, MultiMainService.ACTION_START);
-                        else
-                            break;
+                    synchronized (this) {
+                        while (mTasks.size() < maxThreadNums) {
+                            FileInfo fileInfo = fileInfoQueue.poll();
+                            if (fileInfo != null)
+                                startExecutorService(fileInfo, MultiMainService.ACTION_START);
+                            else
+                                break;
+                        }
                     }
                     Thread.sleep(500);
                 } catch (Exception e) {

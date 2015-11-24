@@ -10,7 +10,7 @@ import com.echo.multidownloader.MultiDownloader;
 import com.echo.multidownloader.R;
 import com.echo.multidownloader.config.MultiDownloaderConfiguration;
 import com.echo.multidownloader.entities.FileInfo;
-import com.echo.multidownloader.task.MultiDownloadConnectEvent;
+import com.echo.multidownloader.event.MultiDownloadConnectEvent;
 
 import java.util.ArrayList;
 import java.util.List;
