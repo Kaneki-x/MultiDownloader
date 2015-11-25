@@ -2,7 +2,6 @@ package com.echo.multidownloader;
 
 import android.content.Context;
 import android.content.Intent;
-import android.util.Log;
 
 import com.echo.multidownloader.config.MultiDownloaderConfiguration;
 import com.echo.multidownloader.entities.FileInfo;
@@ -132,18 +131,20 @@ public class MultiDownloader {
         public void run() {
             while (true) {
                 try {
-                    synchronized (this) {
-                        while (mTasks.size() < maxThreadNums) {
-                            FileInfo fileInfo = fileInfoQueue.poll();
-                            if (fileInfo != null)
-                                startExecutorService(fileInfo, MultiMainService.ACTION_START);
-                            else
-                                break;
+                    while (mTasks.size() < maxThreadNums) {
+                        FileInfo fileInfo = null;
+                        synchronized (this) {
+                            fileInfo = fileInfoQueue.poll();
                         }
+                        if (fileInfo != null) {
+                            DownloadTask task = new DownloadTask(mContext, fileInfo, 3);
+                            mTasks.put(fileInfo.getUrl(), task);
+                            startExecutorService(fileInfo, MultiMainService.ACTION_START);
+                        } else
+                            break;
                     }
                     Thread.sleep(500);
                 } catch (Exception e) {
-
                 }
             }
         }

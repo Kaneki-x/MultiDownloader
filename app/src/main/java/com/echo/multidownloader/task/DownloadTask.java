@@ -53,6 +53,10 @@ public class DownloadTask {
         return mFileInfo;
     }
 
+    public void setFileInfo(FileInfo mFileInfo) {
+        this.mFileInfo = mFileInfo;
+    }
+
     public void downLoad() {
         List<ThreadInfo> threads = mDao.getThreads(mFileInfo.getUrl());
         ThreadInfo threadInfo = null;
@@ -129,6 +133,7 @@ public class DownloadTask {
                             multiDownloadConnectEvent.setCurrent_percent(mFinised);
                             multiDownloadConnectEvent.setTotal_percent(mFileInfo.getLength());
                             EventBus.getDefault().post(multiDownloadConnectEvent);
+                            Log.i("mThreadInfo", mFinised + "---" + mFileInfo.getLength());
                         }
 
                         if (isPause) {
@@ -146,9 +151,7 @@ public class DownloadTask {
                     checkAllThreadFinished();
                 }
             } catch (Exception e) {
-                synchronized (this) {
-                    MultiDownloader.getInstance().getExecutorTask().remove(mFileInfo.getUrl());
-                }
+                MultiDownloader.getInstance().getExecutorTask().remove(mFileInfo.getUrl());
                 EventBus.getDefault().post(new MultiDownloadConnectEvent(mFileInfo.getUrl(), MultiDownloadConnectEvent.TYPE_FAIL));
                 e.printStackTrace();
             } finally {

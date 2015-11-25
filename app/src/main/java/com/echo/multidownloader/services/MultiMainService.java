@@ -45,11 +45,6 @@ public class MultiMainService extends Service {
         if (ACTION_START.equals(intent.getAction())) {
             FileInfo fileInfo = (FileInfo) intent.getSerializableExtra("fileInfo");
             Log.i(TAG, "Start:" + fileInfo.toString());
-            DownloadTask task = new DownloadTask(MultiMainService.this, fileInfo, 3);
-            // 把下载任务添加到集合中
-            synchronized (this) {
-                MultiDownloader.getInstance().getExecutorTask().put(fileInfo.getUrl(), task);
-            }
             // 启动初始化线程
             new UnitThread(fileInfo).start();
         } else if (ACTION_PAUSE.equals(intent.getAction())) {
@@ -60,9 +55,7 @@ public class MultiMainService extends Service {
             DownloadTask task = MultiDownloader.getInstance().getExecutorTask().get(fileInfo.getUrl());
             if (task != null) {
                 task.isPause = true;
-                synchronized (this) {
-                    MultiDownloader.getInstance().getExecutorTask().remove(fileInfo.getUrl());
-                }
+                MultiDownloader.getInstance().getExecutorTask().remove(fileInfo.getUrl());
             }
         } else if (ACTION_STOP.equals(intent.getAction())) {
             FileInfo fileInfo = (FileInfo) intent.getSerializableExtra("fileInfo");
@@ -78,9 +71,7 @@ public class MultiMainService extends Service {
                         fileInfo.getFileName());
                 if(file.exists())
                     file.delete();
-                synchronized (this) {
-                    MultiDownloader.getInstance().getExecutorTask().remove(fileInfo.getUrl());
-                }
+                MultiDownloader.getInstance().getExecutorTask().remove(fileInfo.getUrl());
             }
         }
         return super.onStartCommand(intent, flags, startId);
@@ -91,8 +82,8 @@ public class MultiMainService extends Service {
             switch (msg.what) {
                 case UNIT_CHECK_SUCCESS:
                     FileInfo fileInfo = (FileInfo) msg.obj;
-                    // 启动下载任务
                     DownloadTask task = MultiDownloader.getInstance().getExecutorTask().get(fileInfo.getUrl());
+                    task.setFileInfo(fileInfo);
                     task.downLoad();
                     break;
             }
@@ -144,9 +135,7 @@ public class MultiMainService extends Service {
                 mFileInfo.setLength(length);
                 mHandler.obtainMessage(UNIT_CHECK_SUCCESS, mFileInfo).sendToTarget();
             } catch (Exception e) {
-                synchronized (this) {
-                    MultiDownloader.getInstance().getExecutorTask().remove(mFileInfo.getUrl());
-                }
+                MultiDownloader.getInstance().getExecutorTask().remove(mFileInfo.getUrl());
                 EventBus.getDefault().post(new MultiDownloadConnectEvent(mFileInfo.getUrl(), MultiDownloadConnectEvent.TYPE_FAIL));
                 e.printStackTrace();
             } finally {

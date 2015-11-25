@@ -11,8 +11,7 @@ import java.util.List;
 public class ThreadDAOImpl implements ThreadDAO {
 	private DBHelper mHelper = null;
 	
-	public ThreadDAOImpl(Context context)
-	{
+	public ThreadDAOImpl(Context context) {
 		mHelper = DBHelper.getInstance(context);
 	}
 	

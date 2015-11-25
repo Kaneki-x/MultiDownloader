@@ -58,7 +58,7 @@ public class MultiDownloaderConfiguration {
 
         private void initEmptyFieldsWithDefaultValues() {
             if(maxThreadNums <= 0)
-                maxThreadNums = 5;
+                maxThreadNums = 2;
             if(downPath == null)
                 downPath = Environment.getExternalStorageDirectory().getAbsolutePath()
                         + "/downloads/";;
