@@ -130,7 +130,7 @@ public class MultiMainService extends Service {
                 mHandler.obtainMessage(0, mFileInfo).sendToTarget();
             } catch (Exception e) {
                 Log.d(TAG, mFileInfo.getUrl()+"---->Check Length Fail");
-                MultiDownloader.getInstance().getExecutorTask().remove(mFileInfo.getUrl());
+                MultiDownloader.getInstance().getExecutorTask().remove(MultiDownloader.getInstance().getDownloadTaskFromQueue(mFileInfo.getUrl()));
                 EventBus.getDefault().post(new MultiDownloadConnectEvent(mFileInfo.getUrl(), MultiDownloadConnectEvent.TYPE_FAIL));
                 e.printStackTrace();
                 System.gc();
