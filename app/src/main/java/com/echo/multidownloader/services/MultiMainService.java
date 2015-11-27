@@ -29,9 +29,6 @@ public class MultiMainService extends Service {
     public static final String ACTION_PAUSE = "ACTION_PAUSE";
     public static final String ACTION_STOP = "ACTION_STOP";
 
-    private final static int UNIT_CHECK_SUCCESS = 0;
-    private final static int UNIT_CHECK_FAIL = 1;
-
     private final static String TAG = "MultiMainService";
 
     @Override
@@ -44,25 +41,25 @@ public class MultiMainService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (ACTION_START.equals(intent.getAction())) {
             FileInfo fileInfo = (FileInfo) intent.getSerializableExtra("fileInfo");
-            Log.i(TAG, "Start:" + fileInfo.toString());
+            Log.d(TAG, fileInfo.getUrl()+"---->Download Start");
             // 启动初始化线程
             new UnitThread(fileInfo).start();
         } else if (ACTION_PAUSE.equals(intent.getAction())) {
             FileInfo fileInfo = (FileInfo) intent.getSerializableExtra("fileInfo");
-            Log.i(TAG, "Pause:" + fileInfo.toString());
+            Log.d(TAG, fileInfo.getUrl()+"---->Download Pause");
 
             // 从集合中取出下载任务
-            DownloadTask task = MultiDownloader.getInstance().getExecutorTask().get(fileInfo.getUrl());
+            DownloadTask task = MultiDownloader.getInstance().getDownloadTaskFromQueue(fileInfo.getUrl());
             if (task != null) {
                 task.isPause = true;
-                MultiDownloader.getInstance().getExecutorTask().remove(fileInfo.getUrl());
+                MultiDownloader.getInstance().getExecutorTask().remove(task);
             }
         } else if (ACTION_STOP.equals(intent.getAction())) {
             FileInfo fileInfo = (FileInfo) intent.getSerializableExtra("fileInfo");
-            Log.i(TAG, "Stop:" + fileInfo.toString());
+            Log.d(TAG, fileInfo.getUrl()+"---->Download Stop");
 
             // 从集合中取出下载任务
-            DownloadTask task = MultiDownloader.getInstance().getExecutorTask().get(fileInfo.getUrl());
+            DownloadTask task = MultiDownloader.getInstance().getDownloadTaskFromQueue(fileInfo.getUrl());
             if (task != null) {
                 task.isPause = true;
                 ThreadDAO threadDAO = new ThreadDAOImpl(this);
@@ -71,23 +68,20 @@ public class MultiMainService extends Service {
                         fileInfo.getFileName());
                 if(file.exists())
                     file.delete();
-                MultiDownloader.getInstance().getExecutorTask().remove(fileInfo.getUrl());
+                MultiDownloader.getInstance().getExecutorTask().remove(task);
             }
         }
         return super.onStartCommand(intent, flags, startId);
     }
 
-    private Handler mHandler = new Handler() {
+    private final Handler mHandler = new Handler() {
         public void handleMessage(android.os.Message msg) {
-            switch (msg.what) {
-                case UNIT_CHECK_SUCCESS:
-                    FileInfo fileInfo = (FileInfo) msg.obj;
-                    DownloadTask task = MultiDownloader.getInstance().getExecutorTask().get(fileInfo.getUrl());
-                    task.setFileInfo(fileInfo);
-                    task.downLoad();
-                    break;
-            }
-        };
+            FileInfo fileInfo = (FileInfo) msg.obj;
+            Log.d(TAG, fileInfo.getUrl()+"---->Check Length Success");
+            DownloadTask task = MultiDownloader.getInstance().getDownloadTaskFromQueue(fileInfo.getUrl());
+            task.setFileInfo(fileInfo);
+            task.downLoad();
+        }
     };
 
     private class UnitThread extends Thread {
@@ -133,11 +127,13 @@ public class MultiMainService extends Service {
                 // 设置文件长度
                 raf.setLength(length);
                 mFileInfo.setLength(length);
-                mHandler.obtainMessage(UNIT_CHECK_SUCCESS, mFileInfo).sendToTarget();
+                mHandler.obtainMessage(0, mFileInfo).sendToTarget();
             } catch (Exception e) {
+                Log.d(TAG, mFileInfo.getUrl()+"---->Check Length Fail");
                 MultiDownloader.getInstance().getExecutorTask().remove(mFileInfo.getUrl());
                 EventBus.getDefault().post(new MultiDownloadConnectEvent(mFileInfo.getUrl(), MultiDownloadConnectEvent.TYPE_FAIL));
                 e.printStackTrace();
+                System.gc();
             } finally {
                 if (connection != null)
                     connection.disconnect();

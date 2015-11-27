@@ -8,9 +8,9 @@ import android.os.Environment;
  */
 public class MultiDownloaderConfiguration {
 
-    int maxThreadNums;
-    String downPath;
-    Context context;
+    private final int maxThreadNums;
+    private final String downPath;
+    private final Context context;
 
     private MultiDownloaderConfiguration(Builder builder) {
 
@@ -37,7 +37,7 @@ public class MultiDownloaderConfiguration {
 
     public static class Builder {
 
-        private Context context;
+        private final Context context;
 
         private String downPath;
         private int maxThreadNums;
@@ -61,7 +61,7 @@ public class MultiDownloaderConfiguration {
                 maxThreadNums = 2;
             if(downPath == null)
                 downPath = Environment.getExternalStorageDirectory().getAbsolutePath()
-                        + "/downloads/";;
+                        + "/downloads/";
         }
 
         public MultiDownloaderConfiguration build() {

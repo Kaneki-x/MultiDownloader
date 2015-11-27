@@ -51,9 +51,9 @@ public class ThreadDAOImpl implements ThreadDAO {
 			ThreadInfo threadInfo = new ThreadInfo();
 			threadInfo.setId(cursor.getInt(cursor.getColumnIndex("thread_id")));
 			threadInfo.setUrl(cursor.getString(cursor.getColumnIndex("url")));
-			threadInfo.setStart(Long.parseLong(cursor.getString(cursor.getColumnIndex("start"))));
-			threadInfo.setEnd(Long.parseLong(cursor.getString(cursor.getColumnIndex("end"))));
-            threadInfo.setFinished(Long.parseLong(cursor.getString(cursor.getColumnIndex("finished"))));
+			threadInfo.setStart(cursor.getLong(cursor.getColumnIndex("start")));
+			threadInfo.setEnd(cursor.getLong(cursor.getColumnIndex("end")));
+            threadInfo.setFinished(cursor.getLong(cursor.getColumnIndex("finished")));
 			list.add(threadInfo);
 		}
 		cursor.close();

@@ -10,19 +10,19 @@ public class ThreadInfo {
 	public ThreadInfo() {
 	}
 	
-	/** 
-	 *@param id
-	 *@param url
-	 *@param start
-	 *@param end
-	 *@param finished
-	 */
-	public ThreadInfo(int id, String url, long start, long end, long finished) {
+	/**
+     * @param finished
+     * @param id
+     * @param url
+     * @param start
+     * @param end
+     */
+	public ThreadInfo(int id, String url, long start, long end) {
 		this.id = id;
 		this.url = url;
 		this.start = start;
 		this.end = end;
-		this.finished = finished;
+		this.finished = (long) 0;
 	}
 
 	public int getId()

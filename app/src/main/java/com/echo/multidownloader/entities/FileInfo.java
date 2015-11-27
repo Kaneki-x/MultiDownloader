@@ -10,33 +10,22 @@ public class FileInfo implements Serializable {
 	private int percent;
 
 	/**
-	 *@param url
-	 *@param fileName
-	 *@param length
-	 *@param percent
-	 */
-	public FileInfo(String url, String fileName, long length,
-			int percent) {
+     * @param url
+     * @param fileName
+     */
+	public FileInfo(String url, String fileName) {
 		this.url = url;
 		this.fileName = fileName;
-		this.length = length;
-		this.percent = percent;
+		this.length = (long) 0;
+		this.percent = 0;
 	}
 
 	public String getUrl() {
 		return url;
 	}
 
-	public void setUrl(String url) {
-		this.url = url;
-	}
-
 	public String getFileName() {
 		return fileName;
-	}
-
-	public void setFileName(String fileName) {
-		this.fileName = fileName;
 	}
 
 	public long getLength()

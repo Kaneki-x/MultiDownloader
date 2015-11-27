@@ -2,6 +2,7 @@ package com.echo.multidownloader;
 
 import android.content.Context;
 import android.content.Intent;
+import android.util.Log;
 
 import com.echo.multidownloader.config.MultiDownloaderConfiguration;
 import com.echo.multidownloader.entities.FileInfo;
@@ -9,29 +10,27 @@ import com.echo.multidownloader.services.MultiMainService;
 import com.echo.multidownloader.task.DownloadTask;
 
 import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.Queue;
-import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 /**
  * Created by Lion on 2015/11/20 0020.
  */
 public class MultiDownloader {
 
+    private final static String TAG = "MultiDownloader";
+
     private static volatile MultiDownloader instance = null;
 
     private int maxThreadNums;
     private String downPath;
     private Context mContext;
-    private ExecutorThread executorThread;
 
-    private Queue<FileInfo> fileInfoQueue;
-    private Map<String, DownloadTask> mTasks;
+    private BlockingQueue<DownloadTask> downloadTaskBlockingQueue;
+    private final BlockingQueue<FileInfo> fileInfoBlockingQueue;
 
     private MultiDownloader() {
-        fileInfoQueue = new LinkedBlockingDeque<FileInfo>();
-        mTasks = new LinkedHashMap<String, DownloadTask>();
+        fileInfoBlockingQueue = new LinkedBlockingQueue<FileInfo>();
     }
 
     private void startExecutorService(FileInfo fileInfo, String action) {
@@ -42,26 +41,30 @@ public class MultiDownloader {
     }
 
     private FileInfo isDownloadTaskExist(String url) {
-        if(mTasks.containsKey(url)) {
-            return mTasks.get(url).getFileInfo();
-        } else {
-            Iterator<FileInfo> it = fileInfoQueue.iterator();
-            while(it.hasNext()) {
-                FileInfo fileInfo = it.next();
-                if(fileInfo.getUrl().equals(url)) {
-                    return fileInfo;
-                }
+        Iterator<FileInfo> fileInfoIterator = fileInfoBlockingQueue.iterator();
+        while(fileInfoIterator.hasNext()) {
+            FileInfo fileInfo = fileInfoIterator.next();
+            if(fileInfo.getUrl().equals(url)) {
+                return fileInfo;
             }
-            return null;
         }
+        Iterator<DownloadTask> downloadTaskIterator = downloadTaskBlockingQueue.iterator();
+        while(downloadTaskIterator.hasNext()) {
+            DownloadTask downloadTask = downloadTaskIterator.next();
+            if(downloadTask.getFileInfo().getUrl().equals(url)) {
+                return downloadTask.getFileInfo();
+            }
+        }
+        return null;
     }
 
     public void init(MultiDownloaderConfiguration configuration) {
         this.maxThreadNums = configuration.getMaxThreadNums();
+        downloadTaskBlockingQueue = new LinkedBlockingQueue<DownloadTask>(maxThreadNums);
         this.downPath = configuration.getDownPath();
         this.mContext = configuration.getContext();
-        this.executorThread = new ExecutorThread();
-        this.executorThread.start();
+        ExecutorThread executorThread = new ExecutorThread();
+        executorThread.start();
     }
 
     public static MultiDownloader getInstance() {
@@ -75,53 +78,51 @@ public class MultiDownloader {
         return instance;
     }
 
-    public int getMaxThreadNums() {
-        return maxThreadNums;
-    }
-
     public String getDownPath() {
         return downPath;
     }
 
-    public Map<String, DownloadTask> getExecutorTask() {
-        return mTasks;
+    public BlockingQueue<DownloadTask> getExecutorTask() {
+        return downloadTaskBlockingQueue;
     }
 
-    public void addDownloadTaskIntoExecutorService(String fileName, String url) {
-        if(isDownloadTaskExist(url) == null) {
-            synchronized (this) {
-                fileInfoQueue.offer(new FileInfo(url, fileName, 0, 0));
+    public DownloadTask getDownloadTaskFromQueue(String url) {
+        Iterator<DownloadTask> downloadTaskIterator = downloadTaskBlockingQueue.iterator();
+        while(downloadTaskIterator.hasNext()) {
+            DownloadTask downloadTask = downloadTaskIterator.next();
+            if(downloadTask.getFileInfo().getUrl().equals(url)) {
+                return downloadTask;
             }
         }
+        return null;
     }
 
-    public boolean pauseDownloadTaskFromExecutorService(String url) {
-        FileInfo fileInfo = isDownloadTaskExist(url);
-        if(fileInfo == null) {
-            return false;
-        } else {
-            if(fileInfoQueue.contains(fileInfo)) {
-                synchronized (this) {
-                    fileInfoQueue.remove(fileInfo);
-                }
-            } else
-                startExecutorService(fileInfo, MultiMainService.ACTION_PAUSE);
-            return true;
+    public void addDownloadTaskIntoExecutorService(final String fileName, final String url) {
+        if(isDownloadTaskExist(url) == null) {
+            Log.d(TAG, url+"---->Add To Ready Queue");
+            fileInfoBlockingQueue.add(new FileInfo(url, fileName));
         }
     }
 
-    public boolean stopDownloadTaskFromExecutorService(String url) {
+    public void pauseDownloadTaskFromExecutorService(String url) {
+        FileInfo fileInfo = isDownloadTaskExist(url);
+        if(fileInfo != null) {
+            if(fileInfoBlockingQueue.contains(fileInfo)) {
+                Log.d(TAG, fileInfo.getUrl()+"---->Pause True Remove From Ready Queue");
+                fileInfoBlockingQueue.remove(fileInfo);
+            } else
+                startExecutorService(fileInfo, MultiMainService.ACTION_PAUSE);
+        }
+    }
+
+    public void stopDownloadTaskFromExecutorService(String url) {
         FileInfo fileInfo = isDownloadTaskExist(url);
         if(fileInfo == null) {
-            return false;
-        } else {
-            if(fileInfoQueue.contains(fileInfo)) {
-                synchronized (this) {
-                    fileInfoQueue.remove(fileInfo);
-                }
+            if(fileInfoBlockingQueue.contains(fileInfo)) {
+                Log.d(TAG, fileInfo.getUrl()+"---->Stop True Remove From Ready Queue");
+                fileInfoBlockingQueue.remove(fileInfo);
             } else
                 startExecutorService(fileInfo, MultiMainService.ACTION_STOP);
-            return true;
         }
     }
 
@@ -131,20 +132,15 @@ public class MultiDownloader {
         public void run() {
             while (true) {
                 try {
-                    while (mTasks.size() < maxThreadNums) {
-                        FileInfo fileInfo = null;
-                        synchronized (this) {
-                            fileInfo = fileInfoQueue.poll();
-                        }
-                        if (fileInfo != null) {
-                            DownloadTask task = new DownloadTask(mContext, fileInfo, 3);
-                            mTasks.put(fileInfo.getUrl(), task);
-                            startExecutorService(fileInfo, MultiMainService.ACTION_START);
-                        } else
-                            break;
-                    }
-                    Thread.sleep(500);
+                    Log.d(TAG, "ExecutorThread Get From Ready Queue");
+                    FileInfo fileInfo = fileInfoBlockingQueue.take();
+                    DownloadTask task = new DownloadTask(mContext, fileInfo);
+                    Log.d(TAG, "ExecutorThread Put In Task Queue");
+                    downloadTaskBlockingQueue.put(task);
+                    Log.d(TAG, fileInfo.getUrl()+"---->Start Service");
+                    startExecutorService(fileInfo, MultiMainService.ACTION_START);
                 } catch (Exception e) {
+                    Log.d(TAG, e.toString());
                 }
             }
         }

@@ -9,8 +9,8 @@ public class MultiDownloadConnectEvent {
     public static final int TYPE_FAIL = 1;
     public static final int TYPE_LOADING = 2;
 
-    private int type;
-    private String url;
+    private final int type;
+    private final String url;
     private long current_percent = 0;
     private long total_percent = 0;
 

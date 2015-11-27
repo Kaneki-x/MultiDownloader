@@ -25,28 +25,28 @@ import de.greenrobot.event.EventBus;
 
 public class DownloadTask {
 
+    private static final String TAG = "DownloadTask";
+
     private static final int TASK_UPDATE = 0;
     private static final int TASK_FINISH = 1;
     private static final int TASK_ERROR = 2;
 
-    private Context mContext = null;
     private FileInfo mFileInfo = null;
     private ThreadDAO mDao = null;
-    private int mFinised = 0;
+    private long mFinised = 0;
     private int mThreadCount = 1;
     private List<DownloadThread> mDownloadThreadList = null;
 
     public boolean isPause = false;
 
     /**
-     *@param mContext
-     *@param mFileInfo
+     * @param mContext
+     * @param mFileInfo
      */
-    public DownloadTask(Context mContext, FileInfo mFileInfo, int count) {
-        this.mContext = mContext;
+    public DownloadTask(Context mContext, FileInfo mFileInfo) {
         this.mFileInfo = mFileInfo;
-        this.mThreadCount = count;
-        mDao = new ThreadDAOImpl(this.mContext);
+        this.mThreadCount = 3;
+        mDao = new ThreadDAOImpl(mContext);
     }
 
     public FileInfo getFileInfo() {
@@ -65,7 +65,7 @@ public class DownloadTask {
             long len = mFileInfo.getLength() / mThreadCount;
             for (int i = 0; i < mThreadCount; i++) {
                 threadInfo = new ThreadInfo(i, mFileInfo.getUrl(),
-                        len * i, (i + 1) * len - 1, 0);
+                        len * i, (i + 1) * len - 1);
 
                 if (mThreadCount - 1 == i) {
                     threadInfo.setEnd(mFileInfo.getLength());
@@ -117,7 +117,7 @@ public class DownloadTask {
                 raf = new RandomAccessFile(file, "rwd");
                 raf.seek(start);
                 mFinised += mThreadInfo.getFinished();
-                Log.i("mFinised", mThreadInfo.getId() + "finished = " + mThreadInfo.getFinished());
+
                 if (connection.getResponseCode() == HttpStatus.SC_PARTIAL_CONTENT) {
                     inputStream = connection.getInputStream();
                     byte buf[] = new byte[1024 << 2];
@@ -133,15 +133,12 @@ public class DownloadTask {
                             multiDownloadConnectEvent.setCurrent_percent(mFinised);
                             multiDownloadConnectEvent.setTotal_percent(mFileInfo.getLength());
                             EventBus.getDefault().post(multiDownloadConnectEvent);
-                            Log.i("mThreadInfo", mFinised + "---" + mFileInfo.getLength());
                         }
 
                         if (isPause) {
                             mDao.updateThread(mThreadInfo.getUrl(),
                                     mThreadInfo.getId(),
                                     mThreadInfo.getFinished());
-
-                            Log.i("mThreadInfo", mThreadInfo.getId() + "finished = " + mThreadInfo.getFinished());
 
                             return;
                         }
@@ -151,9 +148,11 @@ public class DownloadTask {
                     checkAllThreadFinished();
                 }
             } catch (Exception e) {
-                MultiDownloader.getInstance().getExecutorTask().remove(mFileInfo.getUrl());
+                Log.d(TAG, mThreadInfo.getUrl()+"---->Download Fail");
+                MultiDownloader.getInstance().getExecutorTask().remove(DownloadTask.this);
                 EventBus.getDefault().post(new MultiDownloadConnectEvent(mFileInfo.getUrl(), MultiDownloadConnectEvent.TYPE_FAIL));
                 e.printStackTrace();
+                System.gc();
             } finally {
                 try {
                     if (connection != null)
@@ -180,9 +179,11 @@ public class DownloadTask {
         }
 
         if (allFinished) {
+            Log.d(TAG, mFileInfo.getUrl()+"---->Download Success");
             mDao.deleteThread(mFileInfo.getUrl());
-            MultiDownloader.getInstance().getExecutorTask().remove(mFileInfo.getUrl());
+            MultiDownloader.getInstance().getExecutorTask().remove(DownloadTask.this);
             EventBus.getDefault().post(new MultiDownloadConnectEvent(mFileInfo.getUrl(), MultiDownloadConnectEvent.TYPE_SUCCESS));
+            System.gc();
         }
     }
 }

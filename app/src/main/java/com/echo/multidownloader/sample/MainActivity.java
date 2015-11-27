@@ -3,6 +3,7 @@ package com.echo.multidownloader.sample;
 
 import android.app.Activity;
 import android.os.Bundle;
+import android.util.Log;
 import android.widget.ListView;
 import android.widget.Toast;
 
@@ -37,6 +38,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        Log.d("bobo", "on create");
         setContentView(R.layout.activity_main);
         EventBus.getDefault().register(this);
 
@@ -49,7 +51,7 @@ public class MainActivity extends Activity {
             FileInfo fileInfo = null;
             fileInfo = new FileInfo(
                     urls[i],
-                    names[i], 0, 0);
+                    names[i]);
 
             mFileInfoList.add(fileInfo);
         }
