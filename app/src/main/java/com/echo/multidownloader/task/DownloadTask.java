@@ -107,6 +107,7 @@ public class DownloadTask {
             try {
                 URL url = new URL(mThreadInfo.getUrl());
                 connection = (HttpURLConnection) url.openConnection();
+                connection.setReadTimeout(5000);
                 connection.setConnectTimeout(5000);
                 connection.setRequestMethod("GET");
                 long start = mThreadInfo.getStart() + mThreadInfo.getFinished();
