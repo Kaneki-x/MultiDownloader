@@ -128,7 +128,7 @@ public class DownloadTask {
                         raf.write(buf, 0, len);
                         mFinised += len;
                         mThreadInfo.setFinished(mThreadInfo.getFinished() + len);
-                        if (System.currentTimeMillis() - time > 1000) {
+                        if (System.currentTimeMillis() - time > 500) {
                             time = System.currentTimeMillis();
                             MultiDownloadConnectEvent multiDownloadConnectEvent = new MultiDownloadConnectEvent(mFileInfo.getUrl(), MultiDownloadConnectEvent.TYPE_LOADING);
                             multiDownloadConnectEvent.setCurrent_percent(mFinised);
