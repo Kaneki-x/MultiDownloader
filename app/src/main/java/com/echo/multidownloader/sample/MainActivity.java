@@ -10,13 +10,10 @@ import android.widget.Toast;
 import com.echo.multidownloader.MultiDownloader;
 import com.echo.multidownloader.R;
 import com.echo.multidownloader.config.MultiDownloaderConfiguration;
-import com.echo.multidownloader.entities.FileInfo;
-import com.echo.multidownloader.event.MultiDownloadConnectEvent;
+import com.echo.multidownloader.entitie.FileInfo;
 
 import java.util.ArrayList;
 import java.util.List;
-
-import de.greenrobot.event.EventBus;
 
 public class MainActivity extends Activity {
 
@@ -38,9 +35,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        Log.d("bobo", "on create");
         setContentView(R.layout.activity_main);
-        EventBus.getDefault().register(this);
 
         MultiDownloader.getInstance().init(MultiDownloaderConfiguration.createDefault(this));
 
@@ -58,34 +53,5 @@ public class MainActivity extends Activity {
 
         mAdapter = new FileListAdapter(this, mFileInfoList);
         mListView.setAdapter(mAdapter);
-    }
-
-    public void onEventMainThread(MultiDownloadConnectEvent multiDownloadConnectEvent) {
-        for (FileInfo fileInfo : mFileInfoList) {
-            if(fileInfo.getUrl().equals(multiDownloadConnectEvent.getUrl())) {
-                switch (multiDownloadConnectEvent.getType()) {
-                    case MultiDownloadConnectEvent.TYPE_SUCCESS:
-                        Toast.makeText(this, fileInfo.getFileName()+"-->success", Toast.LENGTH_SHORT).show();
-                        fileInfo.setPercent(0);
-                        mAdapter.notifyDataSetChanged();
-                        break;
-                    case MultiDownloadConnectEvent.TYPE_LOADING:
-                        fileInfo.setPercent((int)(multiDownloadConnectEvent.getCurrent_percent() * 100 / multiDownloadConnectEvent.getTotal_percent()));
-                        mAdapter.notifyDataSetChanged();
-                        break;
-                    case MultiDownloadConnectEvent.TYPE_FAIL:
-                        Toast.makeText(this, fileInfo.getFileName()+"-->fail", Toast.LENGTH_SHORT).show();
-                        fileInfo.setPercent(0);
-                        mAdapter.notifyDataSetChanged();
-                        break;
-                }
-            }
-        }
-    }
-
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        EventBus.getDefault().unregister(this);
     }
 }

@@ -1,14 +1,15 @@
 package com.echo.multidownloader.task;
 
 import android.content.Context;
+import android.os.Handler;
+import android.os.Message;
 import android.util.Log;
 
 import com.echo.multidownloader.MultiDownloader;
 import com.echo.multidownloader.db.ThreadDAO;
 import com.echo.multidownloader.db.ThreadDAOImpl;
-import com.echo.multidownloader.entities.FileInfo;
-import com.echo.multidownloader.entities.ThreadInfo;
-import com.echo.multidownloader.event.MultiDownloadConnectEvent;
+import com.echo.multidownloader.entitie.FileInfo;
+import com.echo.multidownloader.entitie.ThreadInfo;
 
 import org.apache.http.HttpStatus;
 
@@ -20,22 +21,40 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 
-import de.greenrobot.event.EventBus;
-
-
 public class DownloadTask {
 
     private static final String TAG = "DownloadTask";
 
-    private static final int TASK_UPDATE = 0;
-    private static final int TASK_FINISH = 1;
-    private static final int TASK_ERROR = 2;
+    private static final int TASK_LOADING = 0;
+    private static final int TASK_SUCCESS = 1;
+    private static final int TASK_FAIL = 2;
 
     private FileInfo mFileInfo = null;
     private ThreadDAO mDao = null;
     private long mFinised = 0;
     private int mThreadCount = 1;
     private List<DownloadThread> mDownloadThreadList = null;
+
+    private Handler mHandler = new Handler() {
+        @Override
+        public void handleMessage(Message msg) {
+            switch (msg.what) {
+                case TASK_SUCCESS:
+                    MultiDownloader.getInstance().getExecutorTask().remove(MultiDownloader.getInstance().getDownloadTaskFromQueue(mFileInfo.getUrl()));
+                    MultiDownloader.getInstance().getMultiDownloadListenerHashMap().get(mFileInfo.getUrl()).onSuccess();
+                    MultiDownloader.getInstance().getMultiDownloadListenerHashMap().remove(mFileInfo.getUrl());
+                    break;
+                case TASK_LOADING:
+                    MultiDownloader.getInstance().getMultiDownloadListenerHashMap().get(mFileInfo.getUrl()).onLoading(mFinised, mFileInfo.getLength());
+                    break;
+                case TASK_FAIL:
+                    MultiDownloader.getInstance().getExecutorTask().remove(MultiDownloader.getInstance().getDownloadTaskFromQueue(mFileInfo.getUrl()));
+                    MultiDownloader.getInstance().getMultiDownloadListenerHashMap().get(mFileInfo.getUrl()).onFail();
+                    MultiDownloader.getInstance().getMultiDownloadListenerHashMap().remove(mFileInfo.getUrl());
+                    break;
+            }
+        }
+    };
 
     public boolean isPause = false;
 
@@ -130,10 +149,7 @@ public class DownloadTask {
                         mThreadInfo.setFinished(mThreadInfo.getFinished() + len);
                         if (System.currentTimeMillis() - time > 500) {
                             time = System.currentTimeMillis();
-                            MultiDownloadConnectEvent multiDownloadConnectEvent = new MultiDownloadConnectEvent(mFileInfo.getUrl(), MultiDownloadConnectEvent.TYPE_LOADING);
-                            multiDownloadConnectEvent.setCurrent_percent(mFinised);
-                            multiDownloadConnectEvent.setTotal_percent(mFileInfo.getLength());
-                            EventBus.getDefault().post(multiDownloadConnectEvent);
+                            mHandler.obtainMessage(TASK_LOADING).sendToTarget();
                         }
 
                         if (isPause) {
@@ -150,10 +166,8 @@ public class DownloadTask {
                 }
             } catch (Exception e) {
                 Log.d(TAG, mThreadInfo.getUrl()+"---->Download Fail");
-                MultiDownloader.getInstance().getExecutorTask().remove(DownloadTask.this);
-                EventBus.getDefault().post(new MultiDownloadConnectEvent(mFileInfo.getUrl(), MultiDownloadConnectEvent.TYPE_FAIL));
+                mHandler.obtainMessage(TASK_FAIL).sendToTarget();
                 e.printStackTrace();
-                System.gc();
             } finally {
                 try {
                     if (connection != null)
@@ -182,9 +196,7 @@ public class DownloadTask {
         if (allFinished) {
             Log.d(TAG, mFileInfo.getUrl()+"---->Download Success");
             mDao.deleteThread(mFileInfo.getUrl());
-            MultiDownloader.getInstance().getExecutorTask().remove(DownloadTask.this);
-            EventBus.getDefault().post(new MultiDownloadConnectEvent(mFileInfo.getUrl(), MultiDownloadConnectEvent.TYPE_SUCCESS));
-            System.gc();
+            mHandler.obtainMessage(TASK_SUCCESS).sendToTarget();
         }
     }
 }

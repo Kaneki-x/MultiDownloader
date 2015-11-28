@@ -23,7 +23,7 @@
         </activity>
 
         <service
-            android:name=".services.MultiMainService"
+            android:name=".service.MultiMainService"
             android:enabled="true"
             android:exported="true">
         </service>

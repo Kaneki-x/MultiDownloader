@@ -1,4 +1,4 @@
-package com.echo.multidownloader.entities;
+package com.echo.multidownloader.entitie;
 
 import java.io.Serializable;
 

@@ -3,7 +3,7 @@ package com.echo.multidownloader.db;
 import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
-import com.echo.multidownloader.entities.ThreadInfo;
+import com.echo.multidownloader.entitie.ThreadInfo;
 import java.util.ArrayList;
 import java.util.List;
 

@@ -1,4 +1,4 @@
-package com.echo.multidownloader.services;
+package com.echo.multidownloader.service;
 
 import android.app.Service;
 import android.content.Intent;
@@ -9,9 +9,8 @@ import android.util.Log;
 import com.echo.multidownloader.MultiDownloader;
 import com.echo.multidownloader.db.ThreadDAO;
 import com.echo.multidownloader.db.ThreadDAOImpl;
-import com.echo.multidownloader.entities.FileInfo;
+import com.echo.multidownloader.entitie.FileInfo;
 import com.echo.multidownloader.task.DownloadTask;
-import com.echo.multidownloader.event.MultiDownloadConnectEvent;
 
 import org.apache.http.HttpStatus;
 
@@ -21,15 +20,16 @@ import java.io.RandomAccessFile;
 import java.net.HttpURLConnection;
 import java.net.URL;
 
-import de.greenrobot.event.EventBus;
-
 public class MultiMainService extends Service {
+
+    private static final String TAG = "MultiMainService";
+
+    private static final int TASK_CHECK_SUCCESS = 0;
+    private static final int TASK_CHECK_FAIL = 1;
 
     public static final String ACTION_START = "ACTION_START";
     public static final String ACTION_PAUSE = "ACTION_PAUSE";
     public static final String ACTION_STOP = "ACTION_STOP";
-
-    private final static String TAG = "MultiMainService";
 
     @Override
     public IBinder onBind(Intent intent) {
@@ -53,6 +53,7 @@ public class MultiMainService extends Service {
             if (task != null) {
                 task.isPause = true;
                 MultiDownloader.getInstance().getExecutorTask().remove(task);
+                MultiDownloader.getInstance().getMultiDownloadListenerHashMap().remove(fileInfo.getUrl());
             }
         } else if (ACTION_STOP.equals(intent.getAction())) {
             FileInfo fileInfo = (FileInfo) intent.getSerializableExtra("fileInfo");
@@ -69,6 +70,7 @@ public class MultiMainService extends Service {
                 if(file.exists())
                     file.delete();
                 MultiDownloader.getInstance().getExecutorTask().remove(task);
+                MultiDownloader.getInstance().getMultiDownloadListenerHashMap().remove(fileInfo.getUrl());
             }
         }
         return super.onStartCommand(intent, flags, startId);
@@ -77,10 +79,17 @@ public class MultiMainService extends Service {
     private final Handler mHandler = new Handler() {
         public void handleMessage(android.os.Message msg) {
             FileInfo fileInfo = (FileInfo) msg.obj;
-            Log.d(TAG, fileInfo.getUrl()+"---->Check Length Success");
-            DownloadTask task = MultiDownloader.getInstance().getDownloadTaskFromQueue(fileInfo.getUrl());
-            task.setFileInfo(fileInfo);
-            task.downLoad();
+            if(msg.what == TASK_CHECK_SUCCESS) {
+                Log.d(TAG, fileInfo.getUrl() + "---->Check File Length Success");
+                DownloadTask task = MultiDownloader.getInstance().getDownloadTaskFromQueue(fileInfo.getUrl());
+                task.setFileInfo(fileInfo);
+                task.downLoad();
+            } else {
+                Log.d(TAG, fileInfo.getUrl() + "---->Check File Length Fail");
+                MultiDownloader.getInstance().getExecutorTask().remove(MultiDownloader.getInstance().getDownloadTaskFromQueue(fileInfo.getUrl()));
+                MultiDownloader.getInstance().getMultiDownloadListenerHashMap().get(fileInfo.getUrl()).onFail();
+                MultiDownloader.getInstance().getMultiDownloadListenerHashMap().remove(fileInfo.getUrl());
+            }
         }
     };
 
@@ -104,6 +113,7 @@ public class MultiMainService extends Service {
                 URL url = new URL(mFileInfo.getUrl());
                 connection = (HttpURLConnection) url.openConnection();
                 connection.setConnectTimeout(5000);
+                connection.setReadTimeout(5000);
                 connection.setRequestMethod("GET");
                 long length = -1;
 
@@ -127,13 +137,10 @@ public class MultiMainService extends Service {
                 // 设置文件长度
                 raf.setLength(length);
                 mFileInfo.setLength(length);
-                mHandler.obtainMessage(0, mFileInfo).sendToTarget();
+                mHandler.obtainMessage(TASK_CHECK_SUCCESS, mFileInfo).sendToTarget();
             } catch (Exception e) {
-                Log.d(TAG, mFileInfo.getUrl()+"---->Check Length Fail");
-                MultiDownloader.getInstance().getExecutorTask().remove(MultiDownloader.getInstance().getDownloadTaskFromQueue(mFileInfo.getUrl()));
-                EventBus.getDefault().post(new MultiDownloadConnectEvent(mFileInfo.getUrl(), MultiDownloadConnectEvent.TYPE_FAIL));
+                mHandler.obtainMessage(TASK_CHECK_FAIL, mFileInfo).sendToTarget();
                 e.printStackTrace();
-                System.gc();
             } finally {
                 if (connection != null)
                     connection.disconnect();

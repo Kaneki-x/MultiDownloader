@@ -5,10 +5,12 @@ import android.content.Intent;
 import android.util.Log;
 
 import com.echo.multidownloader.config.MultiDownloaderConfiguration;
-import com.echo.multidownloader.entities.FileInfo;
-import com.echo.multidownloader.services.MultiMainService;
+import com.echo.multidownloader.entitie.FileInfo;
+import com.echo.multidownloader.service.MultiMainService;
 import com.echo.multidownloader.task.DownloadTask;
+import com.echo.multidownloader.task.MultiDownloadListener;
 
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -27,7 +29,8 @@ public class MultiDownloader {
     private Context mContext;
 
     private BlockingQueue<DownloadTask> downloadTaskBlockingQueue;
-    private final BlockingQueue<FileInfo> fileInfoBlockingQueue;
+    private BlockingQueue<FileInfo> fileInfoBlockingQueue;
+    private HashMap<String, MultiDownloadListener> multiDownloadListenerHashMap;
 
     private MultiDownloader() {
         fileInfoBlockingQueue = new LinkedBlockingQueue<FileInfo>();
@@ -86,6 +89,8 @@ public class MultiDownloader {
         return downloadTaskBlockingQueue;
     }
 
+    public HashMap<String, MultiDownloadListener> getMultiDownloadListenerHashMap() { return multiDownloadListenerHashMap; }
+
     public DownloadTask getDownloadTaskFromQueue(String url) {
         Iterator<DownloadTask> downloadTaskIterator = downloadTaskBlockingQueue.iterator();
         while(downloadTaskIterator.hasNext()) {
@@ -97,10 +102,11 @@ public class MultiDownloader {
         return null;
     }
 
-    public void addDownloadTaskIntoExecutorService(final String fileName, final String url) {
+    public void addDownloadTaskIntoExecutorService(String fileName, String url, MultiDownloadListener multiDownloadListener) {
         if(isDownloadTaskExist(url) == null) {
             Log.d(TAG, url+"---->Add To Ready Queue");
             fileInfoBlockingQueue.add(new FileInfo(url, fileName));
+            multiDownloadListenerHashMap.put(url, multiDownloadListener);
         }
     }
 
@@ -110,6 +116,7 @@ public class MultiDownloader {
             if(fileInfoBlockingQueue.contains(fileInfo)) {
                 Log.d(TAG, fileInfo.getUrl()+"---->Pause True Remove From Ready Queue");
                 fileInfoBlockingQueue.remove(fileInfo);
+                multiDownloadListenerHashMap.remove(url);
             } else
                 startExecutorService(fileInfo, MultiMainService.ACTION_PAUSE);
         }
@@ -121,6 +128,7 @@ public class MultiDownloader {
             if(fileInfoBlockingQueue.contains(fileInfo)) {
                 Log.d(TAG, fileInfo.getUrl()+"---->Stop True Remove From Ready Queue");
                 fileInfoBlockingQueue.remove(fileInfo);
+                multiDownloadListenerHashMap.remove(url);
             } else
                 startExecutorService(fileInfo, MultiMainService.ACTION_STOP);
         }

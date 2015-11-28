@@ -1,6 +1,6 @@
 package com.echo.multidownloader.db;
 
-import com.echo.multidownloader.entities.ThreadInfo;
+import com.echo.multidownloader.entitie.ThreadInfo;
 import java.util.List;
 
 public interface ThreadDAO {

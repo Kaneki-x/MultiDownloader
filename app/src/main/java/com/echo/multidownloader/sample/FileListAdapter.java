@@ -17,10 +17,12 @@ import android.widget.BaseAdapter;
 import android.widget.Button;
 import android.widget.ProgressBar;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.echo.multidownloader.MultiDownloader;
 import com.echo.multidownloader.R;
-import com.echo.multidownloader.entities.FileInfo;
+import com.echo.multidownloader.entitie.FileInfo;
+import com.echo.multidownloader.task.MultiDownloadListener;
 
 import java.util.List;
 
@@ -96,7 +98,22 @@ public class FileListAdapter extends BaseAdapter {
         public void onClick(View v) {
             switch (v.getId()) {
                 case R.id.btn_start:
-                    MultiDownloader.getInstance().addDownloadTaskIntoExecutorService(fileInfo.getFileName(), fileInfo.getUrl());
+                    MultiDownloader.getInstance().addDownloadTaskIntoExecutorService(fileInfo.getFileName(), fileInfo.getUrl(), new MultiDownloadListener(){
+						@Override
+						public void onSuccess() {
+							Toast.makeText(mContext, fileInfo.getFileName()+"下载成功", Toast.LENGTH_SHORT).show();
+						}
+
+						@Override
+						public void onLoading(long current_length, long total_length) {
+							viewHolder.mProgressBar.setProgress((int) (current_length * 100 / total_length));
+						}
+
+						@Override
+						public void onFail() {
+							Toast.makeText(mContext, fileInfo.getFileName()+"下载失败！", Toast.LENGTH_SHORT).show();
+						}
+					});
                     break;
                 case R.id.btn_stop:
                     MultiDownloader.getInstance().pauseDownloadTaskFromExecutorService(fileInfo.getUrl());

@@ -1,4 +1,4 @@
-package com.echo.multidownloader.entities;
+package com.echo.multidownloader.entitie;
 
 public class ThreadInfo {
 	private int id;
