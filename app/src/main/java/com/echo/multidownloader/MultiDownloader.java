@@ -60,7 +60,7 @@ public class MultiDownloader {
 
     public void init(MultiDownloaderConfiguration configuration) {
         this.maxThreadNums = configuration.getMaxThreadNums();
-        downloadTaskBlockingQueue = new LinkedBlockingQueue<DownloadTask>(maxThreadNums);
+        this. downloadTaskBlockingQueue = new LinkedBlockingQueue<DownloadTask>(maxThreadNums);
         this.downPath = configuration.getDownPath();
         this.mContext = configuration.getContext();
         ExecutorThread executorThread = new ExecutorThread();
