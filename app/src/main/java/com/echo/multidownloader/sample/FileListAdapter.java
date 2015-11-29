@@ -22,7 +22,7 @@ import android.widget.Toast;
 import com.echo.multidownloader.MultiDownloader;
 import com.echo.multidownloader.R;
 import com.echo.multidownloader.entitie.FileInfo;
-import com.echo.multidownloader.task.MultiDownloadListener;
+import com.echo.multidownloader.listener.MultiDownloadListener;
 
 import java.util.List;
 

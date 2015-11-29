@@ -10,6 +10,7 @@ import com.echo.multidownloader.MultiDownloader;
 import com.echo.multidownloader.db.ThreadDAO;
 import com.echo.multidownloader.db.ThreadDAOImpl;
 import com.echo.multidownloader.entitie.FileInfo;
+import com.echo.multidownloader.entitie.MultiDownloadException;
 import com.echo.multidownloader.task.DownloadTask;
 
 import org.apache.http.HttpStatus;
@@ -87,7 +88,7 @@ public class MultiMainService extends Service {
             } else {
                 Log.d(TAG, fileInfo.getUrl() + "---->Check File Length Fail");
                 MultiDownloader.getInstance().getExecutorTask().remove(MultiDownloader.getInstance().getDownloadTaskFromQueue(fileInfo.getUrl()));
-                MultiDownloader.getInstance().getMultiDownloadListenerHashMap().get(fileInfo.getUrl()).onFail();
+                MultiDownloader.getInstance().getMultiDownloadListenerHashMap().get(fileInfo.getUrl()).onFail(new MultiDownloadException("Check file length fail, Please check your internet connection and retry late"));
                 MultiDownloader.getInstance().getMultiDownloadListenerHashMap().remove(fileInfo.getUrl());
             }
         }

@@ -8,7 +8,7 @@ import com.echo.multidownloader.config.MultiDownloaderConfiguration;
 import com.echo.multidownloader.entitie.FileInfo;
 import com.echo.multidownloader.service.MultiMainService;
 import com.echo.multidownloader.task.DownloadTask;
-import com.echo.multidownloader.task.MultiDownloadListener;
+import com.echo.multidownloader.listener.MultiDownloadListener;
 
 import java.util.HashMap;
 import java.util.Iterator;

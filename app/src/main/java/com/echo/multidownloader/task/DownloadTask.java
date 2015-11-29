@@ -6,9 +6,11 @@ import android.os.Message;
 import android.util.Log;
 
 import com.echo.multidownloader.MultiDownloader;
+import com.echo.multidownloader.Util.StringUtils;
 import com.echo.multidownloader.db.ThreadDAO;
 import com.echo.multidownloader.db.ThreadDAOImpl;
 import com.echo.multidownloader.entitie.FileInfo;
+import com.echo.multidownloader.entitie.MultiDownloadException;
 import com.echo.multidownloader.entitie.ThreadInfo;
 
 import org.apache.http.HttpStatus;
@@ -31,8 +33,11 @@ public class DownloadTask {
 
     private FileInfo mFileInfo = null;
     private ThreadDAO mDao = null;
+
     private long mFinised = 0;
     private int mThreadCount = 1;
+    private String speed;
+
     private List<DownloadThread> mDownloadThreadList = null;
 
     private Handler mHandler = new Handler() {
@@ -45,11 +50,11 @@ public class DownloadTask {
                     MultiDownloader.getInstance().getMultiDownloadListenerHashMap().remove(mFileInfo.getUrl());
                     break;
                 case TASK_LOADING:
-                    MultiDownloader.getInstance().getMultiDownloadListenerHashMap().get(mFileInfo.getUrl()).onLoading(mFinised, mFileInfo.getLength());
+                    MultiDownloader.getInstance().getMultiDownloadListenerHashMap().get(mFileInfo.getUrl()).onLoading(mFinised, mFileInfo.getLength(), speed);
                     break;
                 case TASK_FAIL:
                     MultiDownloader.getInstance().getExecutorTask().remove(MultiDownloader.getInstance().getDownloadTaskFromQueue(mFileInfo.getUrl()));
-                    MultiDownloader.getInstance().getMultiDownloadListenerHashMap().get(mFileInfo.getUrl()).onFail();
+                    MultiDownloader.getInstance().getMultiDownloadListenerHashMap().get(mFileInfo.getUrl()).onFail(new MultiDownloadException("Download file fail, Please check your internet connection and retry late"));
                     MultiDownloader.getInstance().getMultiDownloadListenerHashMap().remove(mFileInfo.getUrl());
                     break;
             }
@@ -143,9 +148,11 @@ public class DownloadTask {
                     byte buf[] = new byte[1024 << 2];
                     int len = -1;
                     long time = System.currentTimeMillis();
+                    speed = "0k/s";
                     while ((len = inputStream.read(buf)) != -1) {
                         raf.write(buf, 0, len);
                         mFinised += len;
+                        speed = StringUtils.getDownloadSpeed(len, System.currentTimeMillis() - time);
                         mThreadInfo.setFinished(mThreadInfo.getFinished() + len);
                         if (System.currentTimeMillis() - time > 500) {
                             time = System.currentTimeMillis();
