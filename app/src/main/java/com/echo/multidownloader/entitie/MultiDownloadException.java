@@ -5,13 +5,19 @@ package com.echo.multidownloader.entitie;
  */
 public class MultiDownloadException {
 
-    private String exceptionMessage;
+    private int current_percent;
+    private Exception exception;
 
-    public MultiDownloadException(String exceptionMessage) {
-        this.exceptionMessage = exceptionMessage;
+    public MultiDownloadException(int current_percent, Exception exception) {
+        this.current_percent = current_percent;
+        this.exception = exception;
     }
 
-    public String getExceptionMessage() {
-        return exceptionMessage;
+    public int getPercent() {
+        return current_percent;
+    }
+
+    public Exception getException() {
+        return exception;
     }
 }

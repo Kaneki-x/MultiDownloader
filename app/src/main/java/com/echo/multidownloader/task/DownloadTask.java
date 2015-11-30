@@ -12,6 +12,7 @@ import com.echo.multidownloader.db.ThreadDAOImpl;
 import com.echo.multidownloader.entitie.FileInfo;
 import com.echo.multidownloader.entitie.MultiDownloadException;
 import com.echo.multidownloader.entitie.ThreadInfo;
+import com.echo.multidownloader.listener.MultiDownloadListener;
 
 import org.apache.http.HttpStatus;
 
@@ -33,33 +34,13 @@ public class DownloadTask {
 
     private FileInfo mFileInfo = null;
     private ThreadDAO mDao = null;
+    private Handler mHandler;
 
     private long mFinised = 0;
     private int mThreadCount = 1;
     private String speed;
 
     private List<DownloadThread> mDownloadThreadList = null;
-
-    private Handler mHandler = new Handler() {
-        @Override
-        public void handleMessage(Message msg) {
-            switch (msg.what) {
-                case TASK_SUCCESS:
-                    MultiDownloader.getInstance().getExecutorTask().remove(MultiDownloader.getInstance().getDownloadTaskFromQueue(mFileInfo.getUrl()));
-                    MultiDownloader.getInstance().getMultiDownloadListenerHashMap().get(mFileInfo.getUrl()).onSuccess();
-                    MultiDownloader.getInstance().getMultiDownloadListenerHashMap().remove(mFileInfo.getUrl());
-                    break;
-                case TASK_LOADING:
-                    MultiDownloader.getInstance().getMultiDownloadListenerHashMap().get(mFileInfo.getUrl()).onLoading(mFinised, mFileInfo.getLength(), speed);
-                    break;
-                case TASK_FAIL:
-                    MultiDownloader.getInstance().getExecutorTask().remove(MultiDownloader.getInstance().getDownloadTaskFromQueue(mFileInfo.getUrl()));
-                    MultiDownloader.getInstance().getMultiDownloadListenerHashMap().get(mFileInfo.getUrl()).onFail(new MultiDownloadException("Download file fail, Please check your internet connection and retry late"));
-                    MultiDownloader.getInstance().getMultiDownloadListenerHashMap().remove(mFileInfo.getUrl());
-                    break;
-            }
-        }
-    };
 
     public boolean isPause = false;
 
@@ -82,6 +63,7 @@ public class DownloadTask {
     }
 
     public void downLoad() {
+        initHandler();
         List<ThreadInfo> threads = mDao.getThreads(mFileInfo.getUrl());
         ThreadInfo threadInfo = null;
 
@@ -106,6 +88,35 @@ public class DownloadTask {
             thread.start();
             mDownloadThreadList.add(thread);
         }
+    }
+
+    private void initHandler() {
+        mHandler = new Handler() {
+            @Override
+            public void handleMessage(Message msg) {
+                switch (msg.what) {
+                    case TASK_SUCCESS:
+                        MultiDownloader.getInstance().getExecutorTask().remove(MultiDownloader.getInstance().getDownloadTaskFromQueue(mFileInfo.getUrl()));
+                        MultiDownloader.getInstance().getMultiDownloadListenerHashMap().get(mFileInfo.getUrl()).onSuccess();
+                        MultiDownloader.getInstance().getMultiDownloadListenerHashMap().remove(mFileInfo.getUrl());
+                        break;
+                    case TASK_LOADING:
+                        MultiDownloadListener listener = MultiDownloader.getInstance().getMultiDownloadListenerHashMap().get(mFileInfo.getUrl());
+                        if(listener != null)
+                            listener.onLoading(mFinised, mFileInfo.getLength(), speed);
+                        break;
+                    case TASK_FAIL:
+                        Log.d(TAG, mFileInfo.getUrl()+"---->Download Fail");
+                        MultiDownloader.getInstance().getExecutorTask().remove(MultiDownloader.getInstance().getDownloadTaskFromQueue(mFileInfo.getUrl()));
+                        listener = MultiDownloader.getInstance().getMultiDownloadListenerHashMap().get(mFileInfo.getUrl());
+                        if(listener != null) {
+                            MultiDownloader.getInstance().getMultiDownloadListenerHashMap().get(mFileInfo.getUrl()).onFail((MultiDownloadException) msg.obj);
+                            MultiDownloader.getInstance().getMultiDownloadListenerHashMap().remove(mFileInfo.getUrl());
+                        }
+                        break;
+                }
+            }
+        };
     }
 
     private class DownloadThread extends Thread {
@@ -147,33 +158,40 @@ public class DownloadTask {
                     inputStream = connection.getInputStream();
                     byte buf[] = new byte[1024 << 2];
                     int len = -1;
-                    long time = System.currentTimeMillis();
+                    long pb_time = System.currentTimeMillis();
+                    long sp_time = pb_time;
                     speed = "0k/s";
+                    int sec_total = 0;
                     while ((len = inputStream.read(buf)) != -1) {
                         raf.write(buf, 0, len);
                         mFinised += len;
-                        speed = StringUtils.getDownloadSpeed(len, System.currentTimeMillis() - time);
                         mThreadInfo.setFinished(mThreadInfo.getFinished() + len);
-                        if (System.currentTimeMillis() - time > 500) {
-                            time = System.currentTimeMillis();
+                        if (System.currentTimeMillis() - pb_time > 500) {
+                            pb_time = System.currentTimeMillis();
                             mHandler.obtainMessage(TASK_LOADING).sendToTarget();
                         }
+                        if (System.currentTimeMillis() - sp_time > 1300) {
+                            speed = StringUtils.getDownloadSpeed(sec_total, System.currentTimeMillis() - sp_time);
+                            sp_time = System.currentTimeMillis();
+                            sec_total = 0;
+                        } else
+                            sec_total += len;
 
                         if (isPause) {
                             mDao.updateThread(mThreadInfo.getUrl(),
                                     mThreadInfo.getId(),
                                     mThreadInfo.getFinished());
-
                             return;
                         }
                     }
 
                     isFinished = true;
                     checkAllThreadFinished();
-                }
+                } else
+                    mHandler.obtainMessage(TASK_FAIL, new MultiDownloadException(0, new Exception("Download file fail, Please check your internet connection and retry late"))).sendToTarget();
             } catch (Exception e) {
-                Log.d(TAG, mThreadInfo.getUrl()+"---->Download Fail");
-                mHandler.obtainMessage(TASK_FAIL).sendToTarget();
+                mHandler.obtainMessage(TASK_FAIL, new MultiDownloadException(StringUtils.getCurrentPercent(mFinised, mFileInfo.getLength()), e)).sendToTarget();
+                mDao.updateThread(mThreadInfo.getUrl(), mThreadInfo.getId(), mThreadInfo.getFinished());
                 e.printStackTrace();
             } finally {
                 try {

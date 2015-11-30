@@ -17,6 +17,13 @@
         android:layout_height="wrap_content" 
         android:layout_below="@id/tv_fileName"/>
 
+    <TextView
+        android:id="@+id/tv_speed"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/pb_progress"
+        android:text="" />
+
     <Button
         android:id="@+id/btn_stop"
         android:layout_width="wrap_content"
@@ -30,6 +37,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_below="@+id/pb_progress"
+        android:layout_marginRight="5dp"
         android:layout_toLeftOf="@id/btn_stop"
         android:text="下载" />
 

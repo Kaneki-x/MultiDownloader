@@ -6,13 +6,13 @@ import android.util.Log;
 
 import com.echo.multidownloader.config.MultiDownloaderConfiguration;
 import com.echo.multidownloader.entitie.FileInfo;
+import com.echo.multidownloader.listener.MultiDownloadListener;
 import com.echo.multidownloader.service.MultiMainService;
 import com.echo.multidownloader.task.DownloadTask;
-import com.echo.multidownloader.listener.MultiDownloadListener;
 
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 
 /**
@@ -24,16 +24,16 @@ public class MultiDownloader {
 
     private static volatile MultiDownloader instance = null;
 
-    private int maxThreadNums;
     private String downPath;
     private Context mContext;
 
     private BlockingQueue<DownloadTask> downloadTaskBlockingQueue;
     private BlockingQueue<FileInfo> fileInfoBlockingQueue;
-    private HashMap<String, MultiDownloadListener> multiDownloadListenerHashMap;
+    private ConcurrentHashMap<String, MultiDownloadListener> multiDownloadListenerHashMap;
 
     private MultiDownloader() {
-        fileInfoBlockingQueue = new LinkedBlockingQueue<FileInfo>();
+        fileInfoBlockingQueue = new LinkedBlockingQueue<>();
+        multiDownloadListenerHashMap = new ConcurrentHashMap<>();
     }
 
     private void startExecutorService(FileInfo fileInfo, String action) {
@@ -62,8 +62,8 @@ public class MultiDownloader {
     }
 
     public void init(MultiDownloaderConfiguration configuration) {
-        this.maxThreadNums = configuration.getMaxThreadNums();
-        this. downloadTaskBlockingQueue = new LinkedBlockingQueue<DownloadTask>(maxThreadNums);
+        int maxThreadNums = configuration.getMaxThreadNums();
+        this.downloadTaskBlockingQueue = new LinkedBlockingQueue<>(maxThreadNums);
         this.downPath = configuration.getDownPath();
         this.mContext = configuration.getContext();
         ExecutorThread executorThread = new ExecutorThread();
@@ -89,7 +89,7 @@ public class MultiDownloader {
         return downloadTaskBlockingQueue;
     }
 
-    public HashMap<String, MultiDownloadListener> getMultiDownloadListenerHashMap() { return multiDownloadListenerHashMap; }
+    public ConcurrentHashMap<String, MultiDownloadListener> getMultiDownloadListenerHashMap() { return multiDownloadListenerHashMap; }
 
     public DownloadTask getDownloadTaskFromQueue(String url) {
         Iterator<DownloadTask> downloadTaskIterator = downloadTaskBlockingQueue.iterator();

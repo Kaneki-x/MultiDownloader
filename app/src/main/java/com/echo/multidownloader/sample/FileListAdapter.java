@@ -22,6 +22,7 @@ import android.widget.Toast;
 import com.echo.multidownloader.MultiDownloader;
 import com.echo.multidownloader.R;
 import com.echo.multidownloader.entitie.FileInfo;
+import com.echo.multidownloader.entitie.MultiDownloadException;
 import com.echo.multidownloader.listener.MultiDownloadListener;
 
 import java.util.List;
@@ -65,6 +66,7 @@ public class FileListAdapter extends BaseAdapter {
 			
 			viewHolder = new ViewHolder(
 					(TextView) convertView.findViewById(R.id.tv_fileName),
+                    (TextView) convertView.findViewById(R.id.tv_speed),
 					(ProgressBar) convertView.findViewById(R.id.pb_progress),
 					(Button) convertView.findViewById(R.id.btn_start),
 					(Button) convertView.findViewById(R.id.btn_stop)
@@ -101,16 +103,21 @@ public class FileListAdapter extends BaseAdapter {
                     MultiDownloader.getInstance().addDownloadTaskIntoExecutorService(fileInfo.getFileName(), fileInfo.getUrl(), new MultiDownloadListener(){
 						@Override
 						public void onSuccess() {
+                            viewHolder.mProgressBar.setProgress(0);
+                            viewHolder.mSpeed.setText("");
 							Toast.makeText(mContext, fileInfo.getFileName()+"下载成功", Toast.LENGTH_SHORT).show();
 						}
 
 						@Override
-						public void onLoading(long current_length, long total_length) {
+						public void onLoading(long current_length, long total_length, String speed) {
 							viewHolder.mProgressBar.setProgress((int) (current_length * 100 / total_length));
+                            viewHolder.mSpeed.setText(speed);
 						}
 
 						@Override
-						public void onFail() {
+						public void onFail(MultiDownloadException exception) {
+                            viewHolder.mProgressBar.setProgress(0);
+                            viewHolder.mSpeed.setText("");
 							Toast.makeText(mContext, fileInfo.getFileName()+"下载失败！", Toast.LENGTH_SHORT).show();
 						}
 					});
@@ -124,6 +131,7 @@ public class FileListAdapter extends BaseAdapter {
 
 	private static class ViewHolder {
 		TextView mFileName;
+        TextView mSpeed;
 		ProgressBar mProgressBar;
 		Button mStartBtn;
 		Button mStopBtn;
@@ -134,9 +142,10 @@ public class FileListAdapter extends BaseAdapter {
 		 *@param mStartBtn
 		 *@param mStopBtn
 		 */
-		public ViewHolder(TextView mFileName, ProgressBar mProgressBar,
+		public ViewHolder(TextView mFileName, TextView mSpeed, ProgressBar mProgressBar,
 				Button mStartBtn, Button mStopBtn) {
 			this.mFileName = mFileName;
+            this.mSpeed = mSpeed;
 			this.mProgressBar = mProgressBar;
 			this.mStartBtn = mStartBtn;
 			this.mStopBtn = mStopBtn;

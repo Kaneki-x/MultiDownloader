@@ -74,7 +74,7 @@ public class MultiMainService extends Service {
                 MultiDownloader.getInstance().getMultiDownloadListenerHashMap().remove(fileInfo.getUrl());
             }
         }
-        return super.onStartCommand(intent, flags, startId);
+        return START_REDELIVER_INTENT;
     }
 
     private final Handler mHandler = new Handler() {
@@ -88,7 +88,7 @@ public class MultiMainService extends Service {
             } else {
                 Log.d(TAG, fileInfo.getUrl() + "---->Check File Length Fail");
                 MultiDownloader.getInstance().getExecutorTask().remove(MultiDownloader.getInstance().getDownloadTaskFromQueue(fileInfo.getUrl()));
-                MultiDownloader.getInstance().getMultiDownloadListenerHashMap().get(fileInfo.getUrl()).onFail(new MultiDownloadException("Check file length fail, Please check your internet connection and retry late"));
+                MultiDownloader.getInstance().getMultiDownloadListenerHashMap().get(fileInfo.getUrl()).onFail(new MultiDownloadException(0, new Exception("Check file length fail, Please check your internet connection and retry late")));
                 MultiDownloader.getInstance().getMultiDownloadListenerHashMap().remove(fileInfo.getUrl());
             }
         }
