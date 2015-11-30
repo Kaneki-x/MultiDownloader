@@ -6,21 +6,22 @@ import android.os.Message;
 import android.util.Log;
 
 import com.echo.multidownloader.MultiDownloader;
-import com.echo.multidownloader.Util.StringUtils;
 import com.echo.multidownloader.db.ThreadDAO;
 import com.echo.multidownloader.db.ThreadDAOImpl;
 import com.echo.multidownloader.entitie.FileInfo;
 import com.echo.multidownloader.entitie.MultiDownloadException;
 import com.echo.multidownloader.entitie.ThreadInfo;
 import com.echo.multidownloader.listener.MultiDownloadListener;
-
-import org.apache.http.HttpStatus;
+import com.echo.multidownloader.util.StringUtils;
+import com.squareup.okhttp.Call;
+import com.squareup.okhttp.Callback;
+import com.squareup.okhttp.Request;
+import com.squareup.okhttp.Response;
 
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.RandomAccessFile;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -40,7 +41,7 @@ public class DownloadTask {
     private int mThreadCount = 1;
     private String speed;
 
-    private List<DownloadThread> mDownloadThreadList = null;
+    private List<MultiCallback> multiCallbackList = null;
 
     public boolean isPause = false;
 
@@ -82,12 +83,12 @@ public class DownloadTask {
             }
         }
 
-        mDownloadThreadList = new ArrayList<DownloadThread>();
+        multiCallbackList = new ArrayList<>();
         for (ThreadInfo info : threads) {
-            DownloadThread thread = new DownloadThread(info);
-            thread.start();
-            mDownloadThreadList.add(thread);
+            MultiCallback multiCallback = new MultiCallback(info);
+            multiCallbackList.add(multiCallback);
         }
+        downloadByOkHttp();
     }
 
     private void initHandler() {
@@ -119,84 +120,89 @@ public class DownloadTask {
         };
     }
 
-    private class DownloadThread extends Thread {
+    private void downloadByOkHttp() {
+        for(MultiCallback callback : multiCallbackList) {
+            //创建一个Request
+            long start = callback.mThreadInfo.getStart() + callback.mThreadInfo.getFinished();
+            long end = callback.mThreadInfo.getEnd();
+            final Request request = new Request.Builder()
+                    .url(callback.mThreadInfo.getUrl())
+                    .header("Range", "bytes=" + start + "-" + end)
+                    .get()
+                    .build();
+            //new call
+            Call call = MultiDownloader.getInstance().getOkHttpClient().newCall(request);
+            //请求加入调度
+            call.enqueue(callback);
+        }
+    }
+
+    private class MultiCallback implements Callback {
+
         private ThreadInfo mThreadInfo = null;
         public boolean isFinished = false;
 
-        /**
-         *@param mInfo
-         */
-        public DownloadThread(ThreadInfo mInfo) {
-            this.mThreadInfo = mInfo;
+        public MultiCallback(ThreadInfo mThreadInfo) {
+            this.mThreadInfo = mThreadInfo;
         }
 
-        /**
-         * @see Thread#run()
-         */
         @Override
-        public void run() {
-            HttpURLConnection connection = null;
+        public void onFailure(Request request, IOException e) {
+            mHandler.obtainMessage(TASK_FAIL, new MultiDownloadException(0, e)).sendToTarget();
+        }
+
+        @Override
+        public void onResponse(Response response) {
             RandomAccessFile raf = null;
             InputStream inputStream = null;
-
             try {
-                URL url = new URL(mThreadInfo.getUrl());
-                connection = (HttpURLConnection) url.openConnection();
-                connection.setReadTimeout(5000);
-                connection.setConnectTimeout(5000);
-                connection.setRequestMethod("GET");
+                if(response.code() != 206)
+                    throw new Exception("The file server return error");
                 long start = mThreadInfo.getStart() + mThreadInfo.getFinished();
-                connection.setRequestProperty("Range",
-                        "bytes=" + start + "-" + mThreadInfo.getEnd());
                 File file = new File(MultiDownloader.getInstance().getDownPath(),
                         mFileInfo.getFileName());
                 raf = new RandomAccessFile(file, "rwd");
                 raf.seek(start);
                 mFinised += mThreadInfo.getFinished();
 
-                if (connection.getResponseCode() == HttpStatus.SC_PARTIAL_CONTENT) {
-                    inputStream = connection.getInputStream();
-                    byte buf[] = new byte[1024 << 2];
-                    int len = -1;
-                    long pb_time = System.currentTimeMillis();
-                    long sp_time = pb_time;
-                    speed = "0k/s";
-                    int sec_total = 0;
-                    while ((len = inputStream.read(buf)) != -1) {
-                        raf.write(buf, 0, len);
-                        mFinised += len;
-                        mThreadInfo.setFinished(mThreadInfo.getFinished() + len);
-                        if (System.currentTimeMillis() - pb_time > 500) {
-                            pb_time = System.currentTimeMillis();
-                            mHandler.obtainMessage(TASK_LOADING).sendToTarget();
-                        }
-                        if (System.currentTimeMillis() - sp_time > 1300) {
-                            speed = StringUtils.getDownloadSpeed(sec_total, System.currentTimeMillis() - sp_time);
-                            sp_time = System.currentTimeMillis();
-                            sec_total = 0;
-                        } else
-                            sec_total += len;
-
-                        if (isPause) {
-                            mDao.updateThread(mThreadInfo.getUrl(),
-                                    mThreadInfo.getId(),
-                                    mThreadInfo.getFinished());
-                            return;
-                        }
+                inputStream = response.body().byteStream();
+                byte buf[] = new byte[1024 << 2];
+                int len = -1;
+                long pb_time = System.currentTimeMillis();
+                long sp_time = pb_time;
+                speed = "0k/s";
+                int sec_total = 0;
+                while ((len = inputStream.read(buf)) != -1) {
+                    raf.write(buf, 0, len);
+                    mFinised += len;
+                    mThreadInfo.setFinished(mThreadInfo.getFinished() + len);
+                    if (System.currentTimeMillis() - pb_time > 500) {
+                        pb_time = System.currentTimeMillis();
+                        mHandler.obtainMessage(TASK_LOADING).sendToTarget();
                     }
+                    if (System.currentTimeMillis() - sp_time > 1300) {
+                        speed = StringUtils.getDownloadSpeed(sec_total, System.currentTimeMillis() - sp_time);
+                        sp_time = System.currentTimeMillis();
+                        sec_total = 0;
+                    } else
+                        sec_total += len;
 
-                    isFinished = true;
-                    checkAllThreadFinished();
-                } else
-                    mHandler.obtainMessage(TASK_FAIL, new MultiDownloadException(0, new Exception("Download file fail, Please check your internet connection and retry late"))).sendToTarget();
+                    if (isPause) {
+                        mDao.updateThread(mThreadInfo.getUrl(),
+                                mThreadInfo.getId(),
+                                mThreadInfo.getFinished());
+                        return;
+                    }
+                }
+                isFinished = true;
+                Log.d("bobo", mThreadInfo.getId() + "-" + mFinised);
+                checkAllCallbackFinished();
             } catch (Exception e) {
                 mHandler.obtainMessage(TASK_FAIL, new MultiDownloadException(StringUtils.getCurrentPercent(mFinised, mFileInfo.getLength()), e)).sendToTarget();
                 mDao.updateThread(mThreadInfo.getUrl(), mThreadInfo.getId(), mThreadInfo.getFinished());
                 e.printStackTrace();
             } finally {
                 try {
-                    if (connection != null)
-                        connection.disconnect();
                     if (raf != null)
                         raf.close();
                     if (inputStream != null)
@@ -208,11 +214,11 @@ public class DownloadTask {
         }
     }
 
-    private synchronized void checkAllThreadFinished() {
+    private synchronized void checkAllCallbackFinished() {
         boolean allFinished = true;
 
-        for (DownloadThread thread : mDownloadThreadList) {
-            if (!thread.isFinished) {
+        for (MultiCallback callback : multiCallbackList) {
+            if (!callback.isFinished) {
                 allFinished = false;
                 break;
             }

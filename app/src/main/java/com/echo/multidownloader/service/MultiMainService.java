@@ -12,14 +12,14 @@ import com.echo.multidownloader.db.ThreadDAOImpl;
 import com.echo.multidownloader.entitie.FileInfo;
 import com.echo.multidownloader.entitie.MultiDownloadException;
 import com.echo.multidownloader.task.DownloadTask;
-
-import org.apache.http.HttpStatus;
+import com.squareup.okhttp.Call;
+import com.squareup.okhttp.Callback;
+import com.squareup.okhttp.Request;
+import com.squareup.okhttp.Response;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
-import java.net.HttpURLConnection;
-import java.net.URL;
 
 public class MultiMainService extends Service {
 
@@ -44,7 +44,8 @@ public class MultiMainService extends Service {
             FileInfo fileInfo = (FileInfo) intent.getSerializableExtra("fileInfo");
             Log.d(TAG, fileInfo.getUrl()+"---->Download Start");
             // 启动初始化线程
-            new UnitThread(fileInfo).start();
+            //new UnitThread(fileInfo).start();
+            checkFileLength(fileInfo);
         } else if (ACTION_PAUSE.equals(intent.getAction())) {
             FileInfo fileInfo = (FileInfo) intent.getSerializableExtra("fileInfo");
             Log.d(TAG, fileInfo.getUrl()+"---->Download Pause");
@@ -77,6 +78,55 @@ public class MultiMainService extends Service {
         return START_REDELIVER_INTENT;
     }
 
+    private void checkFileLength(final FileInfo mFileInfo) {
+        //创建一个Request
+        final Request request = new Request.Builder()
+                .url(mFileInfo.getUrl())
+                .get()
+                .build();
+        //new call
+        Call call = MultiDownloader.getInstance().getOkHttpClient().newCall(request);
+        //请求加入调度
+        call.enqueue(new Callback() {
+            @Override
+            public void onFailure(Request request, IOException e) {
+                mHandler.obtainMessage(TASK_CHECK_FAIL, mFileInfo).sendToTarget();
+            }
+
+            @Override
+            public void onResponse(Response response) {
+                RandomAccessFile raf = null;
+                long length;
+                try {
+                    File dir = new File(MultiDownloader.getInstance().getDownPath());
+                    if (!dir.exists()) {
+                        dir.mkdir();
+                    }
+                    length = response.body().contentLength();
+                    if(length <= 0)
+                        throw new IOException("File content length invaild");
+                    // 在本地创建文件
+                    File file = new File(dir, mFileInfo.getFileName());
+                    raf = new RandomAccessFile(file, "rwd");
+                    // 设置文件长度
+                    raf.setLength(length);
+                    mFileInfo.setLength(length);
+                    mHandler.obtainMessage(TASK_CHECK_SUCCESS, mFileInfo).sendToTarget();
+                } catch (IOException e) {
+                    mHandler.obtainMessage(TASK_CHECK_FAIL, mFileInfo).sendToTarget();
+                } finally {
+                    if (raf != null) {
+                        try {
+                            raf.close();
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }
+            }
+        });
+    }
+
     private final Handler mHandler = new Handler() {
         public void handleMessage(android.os.Message msg) {
             FileInfo fileInfo = (FileInfo) msg.obj;
@@ -93,66 +143,4 @@ public class MultiMainService extends Service {
             }
         }
     };
-
-    private class UnitThread extends Thread {
-        private FileInfo mFileInfo = null;
-
-        public UnitThread(FileInfo mFileInfo) {
-            this.mFileInfo = mFileInfo;
-        }
-
-        /**
-         * @see java.lang.Thread#run()
-         */
-        @Override
-        public void run() {
-            HttpURLConnection connection = null;
-            RandomAccessFile raf = null;
-
-            try {
-                // 连接网络文件
-                URL url = new URL(mFileInfo.getUrl());
-                connection = (HttpURLConnection) url.openConnection();
-                connection.setConnectTimeout(5000);
-                connection.setReadTimeout(5000);
-                connection.setRequestMethod("GET");
-                long length = -1;
-
-                if (connection.getResponseCode() == HttpStatus.SC_OK) {
-                    // 获得文件的长度
-                    length = connection.getContentLength();
-                }
-
-                if (length <= 0) {
-                    return;
-                }
-
-                File dir = new File(MultiDownloader.getInstance().getDownPath());
-                if (!dir.exists()) {
-                    dir.mkdir();
-                }
-
-                // 在本地创建文件
-                File file = new File(dir, mFileInfo.getFileName());
-                raf = new RandomAccessFile(file, "rwd");
-                // 设置文件长度
-                raf.setLength(length);
-                mFileInfo.setLength(length);
-                mHandler.obtainMessage(TASK_CHECK_SUCCESS, mFileInfo).sendToTarget();
-            } catch (Exception e) {
-                mHandler.obtainMessage(TASK_CHECK_FAIL, mFileInfo).sendToTarget();
-                e.printStackTrace();
-            } finally {
-                if (connection != null)
-                    connection.disconnect();
-                if (raf != null) {
-                    try {
-                        raf.close();
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                }
-            }
-        }
-    }
 }

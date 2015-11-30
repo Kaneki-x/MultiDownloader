@@ -1,4 +1,4 @@
-package com.echo.multidownloader.Util;
+package com.echo.multidownloader.util;
 
 import java.text.DecimalFormat;
 

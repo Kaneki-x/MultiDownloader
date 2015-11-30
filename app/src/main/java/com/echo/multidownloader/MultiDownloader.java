@@ -9,11 +9,13 @@ import com.echo.multidownloader.entitie.FileInfo;
 import com.echo.multidownloader.listener.MultiDownloadListener;
 import com.echo.multidownloader.service.MultiMainService;
 import com.echo.multidownloader.task.DownloadTask;
+import com.squareup.okhttp.OkHttpClient;
 
 import java.util.Iterator;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Created by Lion on 2015/11/20 0020.
@@ -31,7 +33,13 @@ public class MultiDownloader {
     private BlockingQueue<FileInfo> fileInfoBlockingQueue;
     private ConcurrentHashMap<String, MultiDownloadListener> multiDownloadListenerHashMap;
 
+    private OkHttpClient mOkHttpClient;
+
     private MultiDownloader() {
+        //创建okHttpClient对象
+        mOkHttpClient = new OkHttpClient();
+        mOkHttpClient.setReadTimeout(2, TimeUnit.MINUTES);
+        mOkHttpClient.setConnectTimeout(20, TimeUnit.SECONDS);
         fileInfoBlockingQueue = new LinkedBlockingQueue<>();
         multiDownloadListenerHashMap = new ConcurrentHashMap<>();
     }
@@ -90,6 +98,8 @@ public class MultiDownloader {
     }
 
     public ConcurrentHashMap<String, MultiDownloadListener> getMultiDownloadListenerHashMap() { return multiDownloadListenerHashMap; }
+
+    public OkHttpClient getOkHttpClient() { return mOkHttpClient; }
 
     public DownloadTask getDownloadTaskFromQueue(String url) {
         Iterator<DownloadTask> downloadTaskIterator = downloadTaskBlockingQueue.iterator();
