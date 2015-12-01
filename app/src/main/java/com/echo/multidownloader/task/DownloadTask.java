@@ -97,6 +97,7 @@ public class DownloadTask {
             public void handleMessage(Message msg) {
                 switch (msg.what) {
                     case TASK_SUCCESS:
+                        Log.d(TAG, mFileInfo.getUrl()+"---->Download Success");
                         MultiDownloader.getInstance().getExecutorTask().remove(MultiDownloader.getInstance().getDownloadTaskFromQueue(mFileInfo.getUrl()));
                         MultiDownloader.getInstance().getMultiDownloadListenerHashMap().get(mFileInfo.getUrl()).onSuccess();
                         MultiDownloader.getInstance().getMultiDownloadListenerHashMap().remove(mFileInfo.getUrl());
@@ -195,7 +196,6 @@ public class DownloadTask {
                     }
                 }
                 isFinished = true;
-                Log.d("bobo", mThreadInfo.getId() + "-" + mFinised);
                 checkAllCallbackFinished();
             } catch (Exception e) {
                 mHandler.obtainMessage(TASK_FAIL, new MultiDownloadException(StringUtils.getCurrentPercent(mFinised, mFileInfo.getLength()), e)).sendToTarget();
@@ -225,7 +225,6 @@ public class DownloadTask {
         }
 
         if (allFinished) {
-            Log.d(TAG, mFileInfo.getUrl()+"---->Download Success");
             mDao.deleteThread(mFileInfo.getUrl());
             mHandler.obtainMessage(TASK_SUCCESS).sendToTarget();
         }
