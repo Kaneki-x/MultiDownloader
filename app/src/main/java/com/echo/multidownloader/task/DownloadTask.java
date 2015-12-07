@@ -1,6 +1,7 @@
 package com.echo.multidownloader.task;
 
 import android.content.Context;
+import android.content.Intent;
 import android.os.Handler;
 import android.os.Message;
 import android.util.Log;
@@ -12,6 +13,7 @@ import com.echo.multidownloader.entitie.FileInfo;
 import com.echo.multidownloader.entitie.MultiDownloadException;
 import com.echo.multidownloader.entitie.ThreadInfo;
 import com.echo.multidownloader.listener.MultiDownloadListener;
+import com.echo.multidownloader.service.MultiMainService;
 import com.echo.multidownloader.util.StringUtils;
 import com.squareup.okhttp.Call;
 import com.squareup.okhttp.Callback;
@@ -36,6 +38,7 @@ public class DownloadTask {
     private FileInfo mFileInfo = null;
     private ThreadDAO mDao = null;
     private Handler mHandler;
+    private Context mContext;
 
     private long mFinised = 0;
     private int mThreadCount = 1;
@@ -51,8 +54,12 @@ public class DownloadTask {
      */
     public DownloadTask(Context mContext, FileInfo mFileInfo) {
         this.mFileInfo = mFileInfo;
-        this.mThreadCount = 3;
+        this.mContext = mContext;
         mDao = new ThreadDAOImpl(mContext);
+    }
+
+    public void setThreadCount(int mThreadCount) {
+        this.mThreadCount = mThreadCount;
     }
 
     public FileInfo getFileInfo() {
@@ -101,6 +108,7 @@ public class DownloadTask {
                         MultiDownloader.getInstance().getExecutorTask().remove(MultiDownloader.getInstance().getDownloadTaskFromQueue(mFileInfo.getUrl()));
                         MultiDownloader.getInstance().getMultiDownloadListenerHashMap().get(mFileInfo.getUrl()).onSuccess();
                         MultiDownloader.getInstance().getMultiDownloadListenerHashMap().remove(mFileInfo.getUrl());
+                        stopService();
                         break;
                     case TASK_LOADING:
                         MultiDownloadListener listener = MultiDownloader.getInstance().getMultiDownloadListenerHashMap().get(mFileInfo.getUrl());
@@ -114,6 +122,7 @@ public class DownloadTask {
                         if(listener != null) {
                             MultiDownloader.getInstance().getMultiDownloadListenerHashMap().get(mFileInfo.getUrl()).onFail((MultiDownloadException) msg.obj);
                             MultiDownloader.getInstance().getMultiDownloadListenerHashMap().remove(mFileInfo.getUrl());
+                            stopService();
                         }
                         break;
                 }
@@ -213,6 +222,12 @@ public class DownloadTask {
             }
         }
     }
+
+    private void stopService() {
+        if(MultiDownloader.getInstance().getExecutorTask().size() == 0)
+            mContext.stopService(new Intent(mContext, MultiMainService.class));
+    }
+
 
     private synchronized void checkAllCallbackFinished() {
         boolean allFinished = true;

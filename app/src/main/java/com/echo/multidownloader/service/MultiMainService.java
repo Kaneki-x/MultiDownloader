@@ -12,6 +12,7 @@ import com.echo.multidownloader.db.ThreadDAOImpl;
 import com.echo.multidownloader.entitie.FileInfo;
 import com.echo.multidownloader.entitie.MultiDownloadException;
 import com.echo.multidownloader.task.DownloadTask;
+import com.echo.multidownloader.util.StringUtils;
 import com.squareup.okhttp.Call;
 import com.squareup.okhttp.Callback;
 import com.squareup.okhttp.Request;
@@ -39,6 +40,12 @@ public class MultiMainService extends Service {
     }
 
     @Override
+    public void onDestroy() {
+        super.onDestroy();
+        Log.d(TAG, "Service Stop");
+    }
+
+    @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (ACTION_START.equals(intent.getAction())) {
             FileInfo fileInfo = (FileInfo) intent.getSerializableExtra("fileInfo");
@@ -56,6 +63,7 @@ public class MultiMainService extends Service {
                 task.isPause = true;
                 MultiDownloader.getInstance().getExecutorTask().remove(task);
                 MultiDownloader.getInstance().getMultiDownloadListenerHashMap().remove(fileInfo.getUrl());
+                stopService();
             }
         } else if (ACTION_STOP.equals(intent.getAction())) {
             FileInfo fileInfo = (FileInfo) intent.getSerializableExtra("fileInfo");
@@ -73,9 +81,15 @@ public class MultiMainService extends Service {
                     file.delete();
                 MultiDownloader.getInstance().getExecutorTask().remove(task);
                 MultiDownloader.getInstance().getMultiDownloadListenerHashMap().remove(fileInfo.getUrl());
+                stopService();
             }
         }
         return START_REDELIVER_INTENT;
+    }
+
+    private void stopService() {
+        if(MultiDownloader.getInstance().getExecutorTask().size() == 0)
+            stopSelf();
     }
 
     private void checkFileLength(final FileInfo mFileInfo) {
@@ -134,12 +148,14 @@ public class MultiMainService extends Service {
                 Log.d(TAG, fileInfo.getUrl() + "---->Check File Length Success");
                 DownloadTask task = MultiDownloader.getInstance().getDownloadTaskFromQueue(fileInfo.getUrl());
                 task.setFileInfo(fileInfo);
+                task.setThreadCount(StringUtils.caculateThreadCount(MultiMainService.this, fileInfo.getLength()));
                 task.downLoad();
             } else {
                 Log.d(TAG, fileInfo.getUrl() + "---->Check File Length Fail");
                 MultiDownloader.getInstance().getExecutorTask().remove(MultiDownloader.getInstance().getDownloadTaskFromQueue(fileInfo.getUrl()));
                 MultiDownloader.getInstance().getMultiDownloadListenerHashMap().get(fileInfo.getUrl()).onFail(new MultiDownloadException(0, new Exception("Check file length fail, Please check your internet connection and retry late")));
                 MultiDownloader.getInstance().getMultiDownloadListenerHashMap().remove(fileInfo.getUrl());
+                stopService();
             }
         }
     };

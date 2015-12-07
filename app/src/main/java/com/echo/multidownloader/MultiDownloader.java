@@ -2,13 +2,16 @@ package com.echo.multidownloader;
 
 import android.content.Context;
 import android.content.Intent;
+import android.os.Handler;
 import android.util.Log;
 
 import com.echo.multidownloader.config.MultiDownloaderConfiguration;
 import com.echo.multidownloader.entitie.FileInfo;
+import com.echo.multidownloader.entitie.MultiDownloadException;
 import com.echo.multidownloader.listener.MultiDownloadListener;
 import com.echo.multidownloader.service.MultiMainService;
 import com.echo.multidownloader.task.DownloadTask;
+import com.echo.multidownloader.util.NetUtils;
 import com.squareup.okhttp.OkHttpClient;
 
 import java.util.Iterator;
@@ -35,6 +38,8 @@ public class MultiDownloader {
 
     private OkHttpClient mOkHttpClient;
 
+    private Handler mHandler;
+
     private MultiDownloader() {
         //创建okHttpClient对象
         mOkHttpClient = new OkHttpClient();
@@ -42,6 +47,7 @@ public class MultiDownloader {
         mOkHttpClient.setConnectTimeout(20, TimeUnit.SECONDS);
         fileInfoBlockingQueue = new LinkedBlockingQueue<>();
         multiDownloadListenerHashMap = new ConcurrentHashMap<>();
+        mHandler = new Handler();
     }
 
     private void startExecutorService(FileInfo fileInfo, String action) {
@@ -151,12 +157,22 @@ public class MultiDownloader {
             while (true) {
                 try {
                     Log.d(TAG, "ExecutorThread Get From Ready Queue");
-                    FileInfo fileInfo = fileInfoBlockingQueue.take();
-                    DownloadTask task = new DownloadTask(mContext, fileInfo);
-                    Log.d(TAG, "ExecutorThread Put In Task Queue");
-                    downloadTaskBlockingQueue.put(task);
-                    Log.d(TAG, fileInfo.getUrl()+"---->Start Service");
-                    startExecutorService(fileInfo, MultiMainService.ACTION_START);
+                    final FileInfo fileInfo = fileInfoBlockingQueue.take();
+                    if(NetUtils.isNetworkConnected(mContext)) {
+                        DownloadTask task = new DownloadTask(mContext, fileInfo);
+                        Log.d(TAG, "ExecutorThread Put In Task Queue");
+                        downloadTaskBlockingQueue.put(task);
+                        Log.d(TAG, fileInfo.getUrl()+"---->Start Service");
+                        startExecutorService(fileInfo, MultiMainService.ACTION_START);
+                    } else {
+                        mHandler.post(new Runnable() {
+                            @Override
+                            public void run() {
+                                multiDownloadListenerHashMap.get(fileInfo.getUrl()).onFail(new MultiDownloadException(0, new Exception("Network connect error")));
+                                multiDownloadListenerHashMap.remove(fileInfo.getUrl());
+                            }
+                        });
+                    }
                 } catch (Exception e) {
                     Log.d(TAG, e.toString());
                 }
